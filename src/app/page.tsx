@@ -1,5 +1,7 @@
 'use client';
 
+// Trigger redeploy to include PDF fix
+
 import { useState, useRef } from 'react';
 
 export default function Home() {
@@ -72,7 +74,6 @@ export default function Home() {
           }
           setFileText(text.trim());
         } catch (err) {
-          console.error(err);
           setFileError('Failed to extract text from PDF.');
         }
       };
@@ -88,7 +89,6 @@ export default function Home() {
           const result = await Tesseract.recognize(imageUrl, 'eng');
           setFileText(result.data.text.trim());
         } catch (err) {
-          console.error(err);
           setFileError('Failed to extract text from image.');
         }
       };
