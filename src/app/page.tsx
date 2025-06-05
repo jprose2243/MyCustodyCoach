@@ -37,7 +37,27 @@ export default function Home() {
       reader.onload = () => setFileText(reader.result as string);
       reader.readAsText(file);
     } else if (ext === 'pdf') {
-      setFileError('PDF support will be dynamically added in Step 2.');
+      const reader = new FileReader();
+      reader.onload = async () => {
+        try {
+          const { getDocument, GlobalWorkerOptions } = await import('pdfjs-dist');
+          GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${getDocument.version}/pdf.worker.min.js`;
+
+          const typedArray = new Uint8Array(reader.result as ArrayBuffer);
+          const pdf = await getDocument({ data: typedArray }).promise;
+          let text = '';
+          for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i);
+            const content = await page.getTextContent();
+            text += content.items.map((item: any) => item.str).join(' ') + '\n\n';
+          }
+          setFileText(text.trim());
+        } catch (err) {
+          console.error(err);
+          setFileError('Failed to extract text from PDF.');
+        }
+      };
+      reader.readAsArrayBuffer(file);
     } else if (ext === 'docx') {
       const formData = new FormData();
       formData.append('file', file);
@@ -60,11 +80,19 @@ export default function Home() {
       reader.onload = async () => {
         const imageUrl = reader.result as string;
         setImagePreview(imageUrl);
-        setFileError('Image OCR will be dynamically added in Step 2.');
+
+        try {
+          const Tesseract = await import('tesseract.js');
+          const result = await Tesseract.recognize(imageUrl, 'eng');
+          setFileText(result.data.text.trim());
+        } catch (err) {
+          console.error(err);
+          setFileError('Failed to extract text from image.');
+        }
       };
       reader.readAsDataURL(file);
     } else {
-      setFileError('Unsupported file type. Please upload .txt, .pdf, .docx, or image.');
+      setFileError('Unsupported file type. Please upload .txt, .pdf, .docx, or an image.');
     }
   };
 
