@@ -1,34 +1,78 @@
 'use client';
 
 import { useState } from 'react';
+import * as pdfjsLib from 'pdfjs-dist';
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
 export default function Home() {
   const [prompt, setPrompt] = useState('');
   const [tone, setTone] = useState('calm');
   const [fileText, setFileText] = useState('');
+  const [fileName, setFileName] = useState('');
+  const [fileError, setFileError] = useState('');
   const [response, setResponse] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    setFileError('');
+    setFileText('');
+    setFileName('');
+
     if (!file) return;
 
-    const reader = new FileReader();
+    const ext = file.name.split('.').pop()?.toLowerCase();
+    const maxSizeMB = 5;
+    if (file.size > maxSizeMB * 1024 * 1024) {
+      setFileError(`File too large. Max size is ${maxSizeMB}MB.`);
+      return;
+    }
 
-    reader.onload = async () => {
-      if (file.type === 'application/pdf') {
-        setFileText('[PDF detected. PDF parsing not yet enabled in browser — coming soon.]');
-      } else {
-        setFileText(reader.result as string);
-      }
-    };
+    setFileName(`${file.name} (${(file.size / 1024).toFixed(1)} KB)`);
 
-    if (file.type === 'application/pdf') {
-      setFileText('[Parsing PDF — please wait...]');
-      reader.readAsArrayBuffer(file); // placeholder
-    } else {
+    if (ext === 'txt') {
+      const reader = new FileReader();
+      reader.onload = () => setFileText(reader.result as string);
       reader.readAsText(file);
+    } else if (ext === 'pdf') {
+      const reader = new FileReader();
+      reader.onload = async () => {
+        try {
+          const typedArray = new Uint8Array(reader.result as ArrayBuffer);
+          const pdf = await pdfjsLib.getDocument({ data: typedArray }).promise;
+          let text = '';
+          for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i);
+            const content = await page.getTextContent();
+            text += content.items.map((item: any) => item.str).join(' ') + '\n\n';
+          }
+          setFileText(text.trim());
+        } catch (err) {
+          setFileError('Failed to extract text from PDF.');
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    } else if (ext === 'docx') {
+      const formData = new FormData();
+      formData.append('file', file);
+      try {
+        const res = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData,
+        });
+        const data = await res.json();
+        if (res.ok) {
+          setFileText(data.text);
+        } else {
+          setFileError(data.error || 'Failed to process .docx');
+        }
+      } catch (err) {
+        setFileError('Error uploading .docx file.');
+      }
+    } else {
+      setFileError('Unsupported file type. Please upload .txt, .pdf, or .docx');
     }
   };
 
@@ -42,11 +86,7 @@ export default function Home() {
       const res = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt,
-          tone,
-          fileContext: fileText
-        }),
+        body: JSON.stringify({ prompt, tone, fileContext: fileText }),
       });
 
       const data = await res.json();
@@ -89,14 +129,16 @@ export default function Home() {
 
         <input
           type="file"
-          accept=".txt,.pdf"
+          accept=".txt,.pdf,.docx"
           onChange={handleFileUpload}
           className="w-full border border-gray-300 p-3 rounded"
         />
 
+        {fileError && <p className="text-red-600 text-sm">{fileError}</p>}
+
         {fileText && (
           <div className="text-sm text-gray-600 border border-gray-200 bg-gray-50 p-3 rounded">
-            <strong>File context loaded:</strong>
+            <strong>File loaded:</strong> {fileName}
             <pre className="whitespace-pre-wrap mt-2 max-h-40 overflow-auto">{fileText.slice(0, 1000)}{fileText.length > 1000 && '... (truncated)'}</pre>
           </div>
         )}

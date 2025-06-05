@@ -1,50 +1,43 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
+import { IncomingForm } from 'formidable';
+import * as fs from 'fs';
+import * as path from 'path';
+import { promisify } from 'util';
+import mammoth from 'mammoth';
 
-export async function POST(req: NextRequest) {
-  const { prompt, tone = 'calm', fileContext = '' } = await req.json();
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};
 
-  if (!prompt) {
-    return NextResponse.json({ error: 'Prompt is required' }, { status: 400 });
-  }
+const readFile = promisify(fs.readFile);
 
-  const contextSummary = fileContext
-    ? `Here is some background context from uploaded files. Use it only if it's relevant:\n\n${fileContext.slice(
-        0,
-        4000
-      )}`
-    : '';
+export async function POST(req: Request) {
+  return new Promise((resolve, reject) => {
+    const form = new IncomingForm({ keepExtensions: true });
 
-  const systemPrompt = `You are a respectful and helpful assistant helping a parent answer a court question related to custody. Respond in a "${tone}" tone. Be clear, empathetic, and respectful.`;
+    form.parse(req as any, async (err, fields, files) => {
+      if (err) {
+        console.error('Error parsing file:', err);
+        return resolve(NextResponse.json({ error: 'Failed to process upload' }, { status: 500 }));
+      }
 
-  const messages = [
-    { role: 'system', content: systemPrompt },
-    { role: 'user', content: `${contextSummary}\n\nNow answer this court question:\n\n${prompt}` },
-  ];
+      const file = files?.file?.[0];
 
-  const body = {
-    model: 'gpt-4o',
-    messages,
-    temperature: 0.6,
-  };
+      if (!file || file.originalFilename?.split('.').pop() !== 'docx') {
+        return resolve(NextResponse.json({ error: 'Only .docx files are supported in this endpoint' }, { status: 400 }));
+      }
 
-  try {
-    const openaiRes = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-      },
-      body: JSON.stringify(body),
+      try {
+        const buffer = await readFile(file.filepath);
+        const result = await mammoth.extractRawText({ buffer });
+
+        return resolve(NextResponse.json({ text: result.value }));
+      } catch (err) {
+        console.error('Error processing .docx:', err);
+        return resolve(NextResponse.json({ error: 'Failed to extract text from .docx' }, { status: 500 }));
+      }
     });
-
-    const json = await openaiRes.json();
-
-    if (!openaiRes.ok) {
-      return NextResponse.json({ error: json.error?.message || 'OpenAI error' }, { status: 500 });
-    }
-
-    return NextResponse.json({ result: json.choices[0]?.message?.content });
-  } catch (error) {
-    return NextResponse.json({ error: 'Server error while generating response.' }, { status: 500 });
-  }
+  });
 }
