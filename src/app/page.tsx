@@ -110,7 +110,12 @@ export default function Home() {
         body: JSON.stringify({ prompt, tone, fileContext: fileText }),
       });
 
-      const data = await res.json();
+      let data;
+      try {
+        data = await res.json();
+      } catch (jsonErr) {
+        throw new Error('Server returned an empty or invalid response.');
+      }
 
       if (!res.ok) {
         throw new Error(data.error || 'Something went wrong.');
