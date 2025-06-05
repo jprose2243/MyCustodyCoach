@@ -37,21 +37,21 @@ export default function Home() {
   };
 
   return (
-    <main className="max-w-xl mx-auto mt-20 px-4 text-white">
+    <main className="max-w-xl mx-auto mt-20 px-4 bg-white text-gray-900 p-6 rounded shadow-md">
       <h1 className="text-3xl font-bold mb-6 text-center">MyCustodyCoach</h1>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <textarea
           rows={6}
           placeholder="Paste your court question here..."
-          className="w-full p-3 border border-gray-300 rounded text-black"
+          className="w-full p-3 border border-gray-300 rounded"
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
           required
         />
 
         <select
-          className="w-full p-3 border border-gray-300 rounded text-black"
+          className="w-full p-3 border border-gray-300 rounded"
           value={tone}
           onChange={(e) => setTone(e.target.value)}
         >
