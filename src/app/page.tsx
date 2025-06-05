@@ -72,6 +72,7 @@ export default function Home() {
           }
           setFileText(text.trim());
         } catch (err) {
+          console.error(err);
           setFileError('Failed to extract text from PDF.');
         }
       };
@@ -87,12 +88,13 @@ export default function Home() {
           const result = await Tesseract.recognize(imageUrl, 'eng');
           setFileText(result.data.text.trim());
         } catch (err) {
+          console.error(err);
           setFileError('Failed to extract text from image.');
         }
       };
       reader.readAsDataURL(file);
     } else {
-      setFileError('Unsupported file type. Please upload .txt, .pdf, .docx, or image.');
+      setFileError('Unsupported file type. Please upload .txt, .pdf, .docx, or an image.');
     }
   };
 
@@ -129,10 +131,9 @@ export default function Home() {
   };
 
   const handleDownloadPDF = async () => {
-    const html2pdf = (await import('html2pdf.js')).default;
+    const html2pdf = (await import('html2pdf.js')) as any;
     const element = pdfRef.current;
     if (!element) return;
-
     html2pdf().from(element).save('MyCustodyCoach_Response.pdf');
   };
 
