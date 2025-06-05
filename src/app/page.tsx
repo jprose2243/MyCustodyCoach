@@ -37,21 +37,21 @@ export default function Home() {
   };
 
   return (
-    <main className="max-w-xl mx-auto mt-20 px-4">
+    <main className="max-w-xl mx-auto mt-20 px-4 text-white">
       <h1 className="text-3xl font-bold mb-6 text-center">MyCustodyCoach</h1>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <textarea
           rows={6}
           placeholder="Paste your court question here..."
-          className="w-full p-3 border border-gray-300 rounded"
+          className="w-full p-3 border border-gray-300 rounded text-black"
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
           required
         />
 
         <select
-          className="w-full p-3 border border-gray-300 rounded"
+          className="w-full p-3 border border-gray-300 rounded text-black"
           value={tone}
           onChange={(e) => setTone(e.target.value)}
         >
@@ -72,7 +72,7 @@ export default function Home() {
       {error && <p className="mt-4 text-red-600">{error}</p>}
 
       {response && (
-        <div className="mt-6 p-4 bg-gray-100 border border-gray-300 rounded whitespace-pre-wrap">
+        <div className="mt-6 p-4 bg-white text-gray-900 border border-gray-300 rounded whitespace-pre-wrap shadow-md">
           {response}
         </div>
       )}
