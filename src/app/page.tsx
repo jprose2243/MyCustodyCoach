@@ -26,7 +26,7 @@ export default function Home() {
 
     if (!file) return;
 
-    const ext = file.name.split('.').pop()?.toLowerCase();
+    const ext = file.name.split('.').pop()?.toLowerCase() || '';
     const maxSizeMB = 5;
 
     if (file.size > maxSizeMB * 1024 * 1024) {
@@ -90,7 +90,7 @@ export default function Home() {
       };
       reader.readAsDataURL(file);
     } else {
-      setFileError('Unsupported file type. Please upload .txt, .pdf, .docx, or an image (.png, .jpg)');
+      setFileError('Unsupported file type. Please upload .txt, .pdf, .docx, or an image.');
     }
   };
 
