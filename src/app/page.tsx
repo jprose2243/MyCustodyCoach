@@ -2,8 +2,6 @@
 
 import { useState, useRef } from 'react';
 
-// Trigger PDF deployment fix
-
 export default function Home() {
   const [prompt, setPrompt] = useState('');
   const [tone, setTone] = useState('calm');
@@ -16,85 +14,22 @@ export default function Home() {
   const [error, setError] = useState('');
   const pdfRef = useRef<HTMLDivElement>(null);
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    setFileError('');
-    setFileText('');
-    setFileName('');
-    setImagePreview('');
+  const handleDownloadPDF = async () => {
+    console.log('Download button clicked');
 
-    if (!file) return;
-
-    const ext = file.name.split('.').pop()?.toLowerCase() || '';
-    const maxSizeMB = 5;
-
-    if (file.size > maxSizeMB * 1024 * 1024) {
-      setFileError(`File too large. Max size is ${maxSizeMB}MB.`);
-      return;
-    }
-
-    setFileName(`${file.name} (${(file.size / 1024).toFixed(1)} KB)`);
-
-    if (ext === 'txt') {
-      const reader = new FileReader();
-      reader.onload = () => setFileText(reader.result as string);
-      reader.readAsText(file);
-    } else if (ext === 'docx') {
-      const formData = new FormData();
-      formData.append('file', file);
-      try {
-        const res = await fetch('/api/upload', {
-          method: 'POST',
-          body: formData,
-        });
-        const data = await res.json();
-        if (res.ok) {
-          setFileText(data.text);
-        } else {
-          setFileError(data.error || 'Failed to process .docx');
-        }
-      } catch (err) {
-        setFileError('Error uploading .docx file.');
+    try {
+      const html2pdf = (await import('html2pdf.js')) as any;
+      const element = pdfRef.current;
+      if (!element) {
+        alert('Could not find content to download.');
+        return;
       }
-    } else if (ext === 'pdf') {
-      const reader = new FileReader();
-      reader.onload = async () => {
-        try {
-          const pdfjsLib = await import('pdfjs-dist');
-          pdfjsLib.GlobalWorkerOptions.workerSrc =
-            'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.worker.min.js';
 
-          const typedArray = new Uint8Array(reader.result as ArrayBuffer);
-          const pdf = await pdfjsLib.getDocument({ data: typedArray }).promise;
-          let text = '';
-          for (let i = 1; i <= pdf.numPages; i++) {
-            const page = await pdf.getPage(i);
-            const content = await page.getTextContent();
-            text += content.items.map((item: any) => item.str).join(' ') + '\n\n';
-          }
-          setFileText(text.trim());
-        } catch (err) {
-          setFileError('Failed to extract text from PDF.');
-        }
-      };
-      reader.readAsArrayBuffer(file);
-    } else if (['png', 'jpg', 'jpeg', 'webp'].includes(ext)) {
-      const reader = new FileReader();
-      reader.onload = async () => {
-        const imageUrl = reader.result as string;
-        setImagePreview(imageUrl);
-
-        try {
-          const Tesseract = await import('tesseract.js');
-          const result = await Tesseract.recognize(imageUrl, 'eng');
-          setFileText(result.data.text.trim());
-        } catch (err) {
-          setFileError('Failed to extract text from image.');
-        }
-      };
-      reader.readAsDataURL(file);
-    } else {
-      setFileError('Unsupported file type. Please upload .txt, .pdf, .docx, or an image.');
+      html2pdf().from(element).save('MyCustodyCoach_Response.pdf');
+      console.log('PDF should be downloading now.');
+    } catch (err) {
+      console.error('PDF download error:', err);
+      alert('Something went wrong while trying to download the PDF.');
     }
   };
 
@@ -130,13 +65,6 @@ export default function Home() {
     }
   };
 
-  const handleDownloadPDF = async () => {
-    const html2pdf = (await import('html2pdf.js')) as any;
-    const element = pdfRef.current;
-    if (!element) return;
-    html2pdf().from(element).save('MyCustodyCoach_Response.pdf');
-  };
-
   return (
     <main className="max-w-xl mx-auto mt-20 px-4 bg-white text-gray-900 p-6 rounded shadow-md">
       <h1 className="text-3xl font-bold mb-6 text-center">MyCustodyCoach</h1>
@@ -164,25 +92,9 @@ export default function Home() {
         <input
           type="file"
           accept=".txt,.pdf,.docx,.png,.jpg,.jpeg,.webp"
-          onChange={handleFileUpload}
+          onChange={() => {}}
           className="w-full border border-gray-300 p-3 rounded"
         />
-
-        {fileError && <p className="text-red-600 text-sm">{fileError}</p>}
-
-        {imagePreview && (
-          <img src={imagePreview} alt="Uploaded preview" className="max-h-40 mx-auto mt-2 rounded shadow" />
-        )}
-
-        {fileText && (
-          <div className="text-sm text-gray-600 border border-gray-200 bg-gray-50 p-3 rounded">
-            <strong>File loaded:</strong> {fileName}
-            <pre className="whitespace-pre-wrap mt-2 max-h-40 overflow-auto">
-              {fileText.slice(0, 1000)}
-              {fileText.length > 1000 && '... (truncated)'}
-            </pre>
-          </div>
-        )}
 
         <button
           type="submit"
@@ -197,12 +109,23 @@ export default function Home() {
 
       {response && (
         <div>
-          <div ref={pdfRef} className="mt-6 p-4 bg-white text-gray-900 border border-gray-300 rounded whitespace-pre-wrap shadow-md">
-            <p><strong>Date:</strong> {new Date().toLocaleDateString()}</p>
-            <p><strong>Tone:</strong> {tone}</p>
-            <p><strong>Question:</strong> {prompt}</p>
+          <div
+            ref={pdfRef}
+            className="mt-6 p-4 bg-white text-gray-900 border border-gray-300 rounded whitespace-pre-wrap shadow-md"
+          >
+            <p>
+              <strong>Date:</strong> {new Date().toLocaleDateString()}
+            </p>
+            <p>
+              <strong>Tone:</strong> {tone}
+            </p>
+            <p>
+              <strong>Question:</strong> {prompt}
+            </p>
             <hr className="my-2" />
-            <p><strong>Response:</strong></p>
+            <p>
+              <strong>Response:</strong>
+            </p>
             <p>{response}</p>
           </div>
 
