@@ -40,11 +40,12 @@ export default function Home() {
       const reader = new FileReader();
       reader.onload = async () => {
         try {
-          const { getDocument, GlobalWorkerOptions } = await import('pdfjs-dist');
-          GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${getDocument.version}/pdf.worker.min.js`;
+          const pdfjsLib = await import('pdfjs-dist');
+          pdfjsLib.GlobalWorkerOptions.workerSrc =
+            'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.worker.min.js';
 
           const typedArray = new Uint8Array(reader.result as ArrayBuffer);
-          const pdf = await getDocument({ data: typedArray }).promise;
+          const pdf = await pdfjsLib.getDocument({ data: typedArray }).promise;
           let text = '';
           for (let i = 1; i <= pdf.numPages; i++) {
             const page = await pdf.getPage(i);
