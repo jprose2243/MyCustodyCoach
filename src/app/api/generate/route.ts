@@ -1,22 +1,56 @@
 import { NextRequest, NextResponse } from 'next/server';
-import mammoth from 'mammoth';
 
 export async function POST(req: NextRequest) {
-  const formData = await req.formData();
-  const file = formData.get('file') as File;
+  const { prompt, tone = 'calm', fileContext = '' } = await req.json();
 
-  if (!file || !file.name.endsWith('.docx')) {
-    return NextResponse.json({ error: 'Only .docx files are supported' }, { status: 400 });
+  if (!prompt || !prompt.trim()) {
+    return NextResponse.json({ error: 'Prompt is required.' }, { status: 400 });
   }
 
-  const arrayBuffer = await file.arrayBuffer();
-  const buffer = Buffer.from(arrayBuffer);
+  // Truncate fileContext to reduce token overload
+  const cleanContext = fileContext.slice(0, 3000);
+
+  const contextSummary = cleanContext
+    ? `Here is some background context from uploaded files. Use it only if relevant:\n\n${cleanContext}`
+    : '';
+
+  const systemPrompt = `You are a respectful and helpful assistant helping a parent answer a court question related to custody. Respond in a "${tone}" tone. Be clear, empathetic, and respectful.`;
+
+  const messages = [
+    { role: 'system', content: systemPrompt },
+    { role: 'user', content: `${contextSummary}\n\nNow answer this court question:\n\n${prompt}` },
+  ];
+
+  const body = {
+    model: 'gpt-4o',
+    messages,
+    temperature: 0.6,
+  };
 
   try {
-    const result = await mammoth.extractRawText({ buffer });
-    return NextResponse.json({ text: result.value });
-  } catch (err) {
-    console.error('Mammoth error:', err);
-    return NextResponse.json({ error: 'Failed to process .docx file' }, { status: 500 });
+    const openaiRes = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+      },
+      body: JSON.stringify(body),
+    });
+
+    const json = await openaiRes.json();
+
+    const result = json.choices?.[0]?.message?.content;
+
+    if (!result || result.length < 10) {
+      return NextResponse.json(
+        { error: 'OpenAI returned an empty or invalid response.' },
+        { status: 502 }
+      );
+    }
+
+    return NextResponse.json({ result });
+  } catch (error) {
+    console.error('AI route error:', error);
+    return NextResponse.json({ error: 'Server error while generating response.' }, { status: 500 });
   }
 }
