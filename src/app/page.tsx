@@ -41,7 +41,7 @@ export default function Home() {
       },
       pagebreak: {
         mode: ['css', 'legacy'],
-        before: '.pdf-break',
+        avoid: 'p', // prevent breaks mid-paragraph
       },
     };
 
@@ -246,7 +246,7 @@ export default function Home() {
             <p><strong>Question:</strong> {prompt}</p>
             <hr style={{ margin: '12px 0' }} />
             <p><strong>Response:</strong></p>
-            <p>{response}</p>
+            <p style={{ pageBreakInside: 'avoid' }}>{response}</p>
           </div>
 
           <button
