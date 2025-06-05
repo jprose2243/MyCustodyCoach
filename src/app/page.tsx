@@ -27,13 +27,12 @@ export default function Home() {
     }
 
     const opt = {
-      margin:       0.5,
-      filename:     'MyCustodyCoach_Response.pdf',
-      image:        { type: 'jpeg', quality: 0.98 },
-      html2canvas:  {
+      margin: 0.5,
+      filename: 'MyCustodyCoach_Response.pdf',
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: {
         scale: 2,
         useCORS: true,
-        logging: true,
       },
       jsPDF: {
         unit: 'in',
@@ -41,7 +40,8 @@ export default function Home() {
         orientation: 'portrait',
       },
       pagebreak: {
-        mode: ['avoid-all', 'css', 'legacy'],
+        mode: ['css', 'legacy'],
+        before: '.pdf-break',
       },
     };
 
@@ -225,6 +225,7 @@ export default function Home() {
           <div
             ref={pdfRef}
             data-download-content=""
+            className="pdf-content"
             style={{
               width: '100%',
               maxWidth: '600px',
@@ -235,8 +236,9 @@ export default function Home() {
               lineHeight: '1.6',
               border: '1px solid #ccc',
               marginTop: '24px',
-              whiteSpace: 'normal',
+              whiteSpace: 'pre-wrap',
               overflowWrap: 'break-word',
+              boxSizing: 'border-box',
             }}
           >
             <p><strong>Date:</strong> {new Date().toLocaleDateString()}</p>
