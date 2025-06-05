@@ -26,7 +26,16 @@ export default function Home() {
       return;
     }
 
-    (window as any).html2pdf().from(element).save('MyCustodyCoach_Response.pdf');
+    const opt = {
+      margin:       0.5,
+      filename:     'MyCustodyCoach_Response.pdf',
+      image:        { type: 'jpeg', quality: 0.98 },
+      html2canvas:  { scale: 2 },
+      jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' },
+      pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] }
+    };
+
+    (window as any).html2pdf().set(opt).from(element).save();
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
