@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 
 export default function Home() {
   const [prompt, setPrompt] = useState('');
@@ -12,6 +12,7 @@ export default function Home() {
   const [response, setResponse] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const pdfRef = useRef<HTMLDivElement>(null);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -36,6 +37,23 @@ export default function Home() {
       const reader = new FileReader();
       reader.onload = () => setFileText(reader.result as string);
       reader.readAsText(file);
+    } else if (ext === 'docx') {
+      const formData = new FormData();
+      formData.append('file', file);
+      try {
+        const res = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData,
+        });
+        const data = await res.json();
+        if (res.ok) {
+          setFileText(data.text);
+        } else {
+          setFileError(data.error || 'Failed to process .docx');
+        }
+      } catch (err) {
+        setFileError('Error uploading .docx file.');
+      }
     } else if (ext === 'pdf') {
       const reader = new FileReader();
       reader.onload = async () => {
@@ -54,28 +72,10 @@ export default function Home() {
           }
           setFileText(text.trim());
         } catch (err) {
-          console.error(err);
           setFileError('Failed to extract text from PDF.');
         }
       };
       reader.readAsArrayBuffer(file);
-    } else if (ext === 'docx') {
-      const formData = new FormData();
-      formData.append('file', file);
-      try {
-        const res = await fetch('/api/upload', {
-          method: 'POST',
-          body: formData,
-        });
-        const data = await res.json();
-        if (res.ok) {
-          setFileText(data.text);
-        } else {
-          setFileError(data.error || 'Failed to process .docx');
-        }
-      } catch (err) {
-        setFileError('Error uploading .docx file.');
-      }
     } else if (['png', 'jpg', 'jpeg', 'webp'].includes(ext)) {
       const reader = new FileReader();
       reader.onload = async () => {
@@ -87,13 +87,12 @@ export default function Home() {
           const result = await Tesseract.recognize(imageUrl, 'eng');
           setFileText(result.data.text.trim());
         } catch (err) {
-          console.error(err);
           setFileError('Failed to extract text from image.');
         }
       };
       reader.readAsDataURL(file);
     } else {
-      setFileError('Unsupported file type. Please upload .txt, .pdf, .docx, or an image.');
+      setFileError('Unsupported file type. Please upload .txt, .pdf, .docx, or image.');
     }
   };
 
@@ -113,7 +112,7 @@ export default function Home() {
       let data;
       try {
         data = await res.json();
-      } catch (jsonErr) {
+      } catch {
         throw new Error('Server returned an empty or invalid response.');
       }
 
@@ -127,6 +126,14 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleDownloadPDF = async () => {
+    const html2pdf = (await import('html2pdf.js')).default;
+    const element = pdfRef.current;
+    if (!element) return;
+
+    html2pdf().from(element).save('MyCustodyCoach_Response.pdf');
   };
 
   return (
@@ -188,8 +195,21 @@ export default function Home() {
       {error && <p className="mt-4 text-red-600">{error}</p>}
 
       {response && (
-        <div className="mt-6 p-4 bg-white text-gray-900 border border-gray-300 rounded whitespace-pre-wrap shadow-md">
-          {response}
+        <div>
+          <div ref={pdfRef} className="mt-6 p-4 bg-white text-gray-900 border border-gray-300 rounded whitespace-pre-wrap shadow-md">
+            <p><strong>Date:</strong> {new Date().toLocaleDateString()}</p>
+            <p><strong>Tone:</strong> {tone}</p>
+            <p><strong>Question:</strong> {prompt}</p>
+            <hr className="my-2" />
+            <p><strong>Response:</strong></p>
+            <p>{response}</p>
+          </div>
+          <button
+            onClick={handleDownloadPDF}
+            className="mt-4 w-full bg-green-600 text-white p-3 rounded hover:bg-green-700 transition"
+          >
+            Download PDF
+          </button>
         </div>
       )}
     </main>
