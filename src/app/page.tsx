@@ -205,7 +205,7 @@ export default function Home() {
         <div>
           <div
             ref={pdfRef}
-            data-download-content
+            data-download-content=""
             className="mt-6 p-4 bg-white text-gray-900 border border-gray-300 rounded whitespace-pre-wrap shadow-md"
           >
             <p><strong>Date:</strong> {new Date().toLocaleDateString()}</p>
