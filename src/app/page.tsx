@@ -14,23 +14,19 @@ export default function Home() {
   const [error, setError] = useState('');
   const pdfRef = useRef<HTMLDivElement>(null);
 
-  const handleDownloadPDF = async () => {
-    console.log('Download button clicked');
+  const handleDownloadPDF = () => {
+    const element = pdfRef.current;
 
-    try {
-      const html2pdf = (await import('html2pdf.js')) as any;
-      const element = pdfRef.current;
-      if (!element) {
-        alert('Could not find content to download.');
-        return;
-      }
-
-      html2pdf().from(element).save('MyCustodyCoach_Response.pdf');
-      console.log('PDF should be downloading now.');
-    } catch (err) {
-      console.error('PDF download error:', err);
-      alert('Something went wrong while trying to download the PDF.');
+    if (
+      typeof window === 'undefined' ||
+      !(window as any).html2pdf ||
+      !element
+    ) {
+      alert('PDF export not available. Try again in a moment.');
+      return;
     }
+
+    (window as any).html2pdf().from(element).save('MyCustodyCoach_Response.pdf');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -89,13 +85,6 @@ export default function Home() {
           <option value="cooperative">Tone: Cooperative</option>
         </select>
 
-        <input
-          type="file"
-          accept=".txt,.pdf,.docx,.png,.jpg,.jpeg,.webp"
-          onChange={() => {}}
-          className="w-full border border-gray-300 p-3 rounded"
-        />
-
         <button
           type="submit"
           disabled={loading}
@@ -113,19 +102,11 @@ export default function Home() {
             ref={pdfRef}
             className="mt-6 p-4 bg-white text-gray-900 border border-gray-300 rounded whitespace-pre-wrap shadow-md"
           >
-            <p>
-              <strong>Date:</strong> {new Date().toLocaleDateString()}
-            </p>
-            <p>
-              <strong>Tone:</strong> {tone}
-            </p>
-            <p>
-              <strong>Question:</strong> {prompt}
-            </p>
+            <p><strong>Date:</strong> {new Date().toLocaleDateString()}</p>
+            <p><strong>Tone:</strong> {tone}</p>
+            <p><strong>Question:</strong> {prompt}</p>
             <hr className="my-2" />
-            <p>
-              <strong>Response:</strong>
-            </p>
+            <p><strong>Response:</strong></p>
             <p>{response}</p>
           </div>
 
