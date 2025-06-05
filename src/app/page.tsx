@@ -30,9 +30,19 @@ export default function Home() {
       margin:       0.5,
       filename:     'MyCustodyCoach_Response.pdf',
       image:        { type: 'jpeg', quality: 0.98 },
-      html2canvas:  { scale: 2 },
-      jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' },
-      pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] }
+      html2canvas:  {
+        scale: 2,
+        useCORS: true,
+        logging: true,
+      },
+      jsPDF: {
+        unit: 'in',
+        format: 'letter',
+        orientation: 'portrait',
+      },
+      pagebreak: {
+        mode: ['avoid-all', 'css', 'legacy'],
+      },
     };
 
     (window as any).html2pdf().set(opt).from(element).save();
@@ -217,14 +227,16 @@ export default function Home() {
             data-download-content=""
             style={{
               width: '100%',
-              maxWidth: '500px',
-              padding: '20px',
+              maxWidth: '600px',
+              padding: '24px',
               backgroundColor: 'white',
               color: '#111',
               fontSize: '14px',
               lineHeight: '1.6',
               border: '1px solid #ccc',
               marginTop: '24px',
+              whiteSpace: 'normal',
+              overflowWrap: 'break-word',
             }}
           >
             <p><strong>Date:</strong> {new Date().toLocaleDateString()}</p>
