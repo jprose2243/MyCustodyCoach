@@ -1,8 +1,8 @@
 'use client';
 
-// Trigger redeploy to include PDF fix
-
 import { useState, useRef } from 'react';
+
+// Trigger PDF deployment fix
 
 export default function Home() {
   const [prompt, setPrompt] = useState('');
@@ -205,6 +205,7 @@ export default function Home() {
             <p><strong>Response:</strong></p>
             <p>{response}</p>
           </div>
+
           <button
             onClick={handleDownloadPDF}
             className="mt-4 w-full bg-green-600 text-white p-3 rounded hover:bg-green-700 transition"
