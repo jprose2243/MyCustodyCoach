@@ -206,12 +206,22 @@ export default function Home() {
           <div
             ref={pdfRef}
             data-download-content=""
-            className="mt-6 p-4 bg-white text-gray-900 border border-gray-300 rounded whitespace-pre-wrap shadow-md"
+            style={{
+              width: '100%',
+              maxWidth: '500px',
+              padding: '20px',
+              backgroundColor: 'white',
+              color: '#111',
+              fontSize: '14px',
+              lineHeight: '1.6',
+              border: '1px solid #ccc',
+              marginTop: '24px',
+            }}
           >
             <p><strong>Date:</strong> {new Date().toLocaleDateString()}</p>
             <p><strong>Tone:</strong> {tone}</p>
             <p><strong>Question:</strong> {prompt}</p>
-            <hr className="my-2" />
+            <hr style={{ margin: '12px 0' }} />
             <p><strong>Response:</strong></p>
             <p>{response}</p>
           </div>
