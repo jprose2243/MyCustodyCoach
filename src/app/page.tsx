@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
+import Tesseract from 'tesseract.js';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
@@ -11,6 +12,7 @@ export default function Home() {
   const [fileText, setFileText] = useState('');
   const [fileName, setFileName] = useState('');
   const [fileError, setFileError] = useState('');
+  const [imagePreview, setImagePreview] = useState('');
   const [response, setResponse] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -20,11 +22,13 @@ export default function Home() {
     setFileError('');
     setFileText('');
     setFileName('');
+    setImagePreview('');
 
     if (!file) return;
 
     const ext = file.name.split('.').pop()?.toLowerCase();
     const maxSizeMB = 5;
+
     if (file.size > maxSizeMB * 1024 * 1024) {
       setFileError(`File too large. Max size is ${maxSizeMB}MB.`);
       return;
@@ -71,8 +75,22 @@ export default function Home() {
       } catch (err) {
         setFileError('Error uploading .docx file.');
       }
+    } else if (['png', 'jpg', 'jpeg', 'webp'].includes(ext)) {
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const imageUrl = reader.result as string;
+        setImagePreview(imageUrl);
+
+        try {
+          const result = await Tesseract.recognize(imageUrl, 'eng');
+          setFileText(result.data.text.trim());
+        } catch (err) {
+          setFileError('Failed to extract text from image.');
+        }
+      };
+      reader.readAsDataURL(file);
     } else {
-      setFileError('Unsupported file type. Please upload .txt, .pdf, or .docx');
+      setFileError('Unsupported file type. Please upload .txt, .pdf, .docx, or an image (.png, .jpg)');
     }
   };
 
@@ -129,17 +147,24 @@ export default function Home() {
 
         <input
           type="file"
-          accept=".txt,.pdf,.docx"
+          accept=".txt,.pdf,.docx,.png,.jpg,.jpeg,.webp"
           onChange={handleFileUpload}
           className="w-full border border-gray-300 p-3 rounded"
         />
 
         {fileError && <p className="text-red-600 text-sm">{fileError}</p>}
 
+        {imagePreview && (
+          <img src={imagePreview} alt="Uploaded preview" className="max-h-40 mx-auto mt-2 rounded shadow" />
+        )}
+
         {fileText && (
           <div className="text-sm text-gray-600 border border-gray-200 bg-gray-50 p-3 rounded">
             <strong>File loaded:</strong> {fileName}
-            <pre className="whitespace-pre-wrap mt-2 max-h-40 overflow-auto">{fileText.slice(0, 1000)}{fileText.length > 1000 && '... (truncated)'}</pre>
+            <pre className="whitespace-pre-wrap mt-2 max-h-40 overflow-auto">
+              {fileText.slice(0, 1000)}
+              {fileText.length > 1000 && '... (truncated)'}
+            </pre>
           </div>
         )}
 
