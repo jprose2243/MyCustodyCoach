@@ -5,9 +5,32 @@ import { useState } from 'react';
 export default function Home() {
   const [prompt, setPrompt] = useState('');
   const [tone, setTone] = useState('calm');
+  const [fileText, setFileText] = useState('');
   const [response, setResponse] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+
+    reader.onload = async () => {
+      if (file.type === 'application/pdf') {
+        setFileText('[PDF detected. PDF parsing not yet enabled in browser — coming soon.]');
+      } else {
+        setFileText(reader.result as string);
+      }
+    };
+
+    if (file.type === 'application/pdf') {
+      setFileText('[Parsing PDF — please wait...]');
+      reader.readAsArrayBuffer(file); // placeholder
+    } else {
+      reader.readAsText(file);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -19,7 +42,11 @@ export default function Home() {
       const res = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, tone }),
+        body: JSON.stringify({
+          prompt,
+          tone,
+          fileContext: fileText
+        }),
       });
 
       const data = await res.json();
@@ -59,6 +86,20 @@ export default function Home() {
           <option value="firm">Tone: Firm</option>
           <option value="cooperative">Tone: Cooperative</option>
         </select>
+
+        <input
+          type="file"
+          accept=".txt,.pdf"
+          onChange={handleFileUpload}
+          className="w-full border border-gray-300 p-3 rounded"
+        />
+
+        {fileText && (
+          <div className="text-sm text-gray-600 border border-gray-200 bg-gray-50 p-3 rounded">
+            <strong>File context loaded:</strong>
+            <pre className="whitespace-pre-wrap mt-2 max-h-40 overflow-auto">{fileText.slice(0, 1000)}{fileText.length > 1000 && '... (truncated)'}</pre>
+          </div>
+        )}
 
         <button
           type="submit"
