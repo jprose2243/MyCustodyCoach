@@ -1,22 +1,18 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 
 export default function Home() {
   const [prompt, setPrompt] = useState('');
   const [tone, setTone] = useState('calm');
-  const [fileText, setFileText] = useState('');
-  const [fileName, setFileName] = useState('');
-  const [fileError, setFileError] = useState('');
-  const [imagePreview, setImagePreview] = useState('');
   const [response, setResponse] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   const handleDownloadPDF = () => {
-    const el = document.getElementById('printable');
-    if (!el || !(window as any).html2pdf) {
-      alert('Unable to find printable block or html2pdf is missing.');
+    const block = document.getElementById('printable-block');
+    if (!block || !(window as any).html2pdf) {
+      alert('Could not find printable block or html2pdf.js is missing');
       return;
     }
 
@@ -37,89 +33,7 @@ export default function Home() {
       pagebreak: { mode: ['css', 'legacy'] }
     };
 
-    (window as any).html2pdf().set(opt).from(el).save();
-  };
-
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    setFileError('');
-    setFileText('');
-    setFileName('');
-    setImagePreview('');
-
-    if (!file) return;
-
-    const ext = file.name.split('.').pop()?.toLowerCase() || '';
-    const maxSizeMB = 5;
-
-    if (file.size > maxSizeMB * 1024 * 1024) {
-      setFileError(`File too large. Max size is ${maxSizeMB}MB.`);
-      return;
-    }
-
-    setFileName(`${file.name} (${(file.size / 1024).toFixed(1)} KB)`);
-
-    if (ext === 'txt') {
-      const reader = new FileReader();
-      reader.onload = () => setFileText(reader.result as string);
-      reader.readAsText(file);
-    } else if (ext === 'docx') {
-      const formData = new FormData();
-      formData.append('file', file);
-      try {
-        const res = await fetch('/api/upload', {
-          method: 'POST',
-          body: formData,
-        });
-        const data = await res.json();
-        if (res.ok) {
-          setFileText(data.text);
-        } else {
-          setFileError(data.error || 'Failed to process .docx');
-        }
-      } catch (err) {
-        setFileError('Error uploading .docx file.');
-      }
-    } else if (ext === 'pdf') {
-      const reader = new FileReader();
-      reader.onload = async () => {
-        try {
-          const pdfjsLib = await import('pdfjs-dist');
-          pdfjsLib.GlobalWorkerOptions.workerSrc =
-            'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.worker.min.js';
-
-          const typedArray = new Uint8Array(reader.result as ArrayBuffer);
-          const pdf = await pdfjsLib.getDocument({ data: typedArray }).promise;
-          let text = '';
-          for (let i = 1; i <= pdf.numPages; i++) {
-            const page = await pdf.getPage(i);
-            const content = await page.getTextContent();
-            text += content.items.map((item: any) => item.str).join(' ') + '\n\n';
-          }
-          setFileText(text.trim());
-        } catch (err) {
-          setFileError('Failed to extract text from PDF.');
-        }
-      };
-      reader.readAsArrayBuffer(file);
-    } else if (['png', 'jpg', 'jpeg', 'webp'].includes(ext)) {
-      const reader = new FileReader();
-      reader.onload = async () => {
-        const imageUrl = reader.result as string;
-        setImagePreview(imageUrl);
-
-        try {
-          const Tesseract = await import('tesseract.js');
-          const result = await Tesseract.recognize(imageUrl, 'eng');
-          setFileText(result.data.text.trim());
-        } catch (err) {
-          setFileError('Failed to extract text from image.');
-        }
-      };
-      reader.readAsDataURL(file);
-    } else {
-      setFileError('Unsupported file type. Please upload .txt, .pdf, .docx, or an image.');
-    }
+    (window as any).html2pdf().set(opt).from(block).save();
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -132,7 +46,7 @@ export default function Home() {
       const res = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, tone, fileContext: fileText }),
+        body: JSON.stringify({ prompt, tone }),
       });
 
       const data = await res.json();
@@ -146,13 +60,13 @@ export default function Home() {
   };
 
   return (
-    <main className="max-w-xl mx-auto mt-20 px-4 bg-white text-gray-900 p-6 rounded shadow-md">
-      <h1 className="text-3xl font-bold mb-6 text-center">MyCustodyCoach</h1>
+    <main className="max-w-2xl mx-auto mt-16 px-4 text-gray-900 bg-white">
+      <h1 className="text-3xl font-bold text-center mb-6">MyCustodyCoach</h1>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <textarea
           rows={6}
-          placeholder="Paste your court question here..."
+          placeholder="Enter your court-related question here..."
           className="w-full p-3 border border-gray-300 rounded"
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
@@ -169,29 +83,6 @@ export default function Home() {
           <option value="cooperative">Tone: Cooperative</option>
         </select>
 
-        <input
-          type="file"
-          accept=".txt,.pdf,.docx,.png,.jpg,.jpeg,.webp"
-          onChange={handleFileUpload}
-          className="w-full border border-gray-300 p-3 rounded"
-        />
-
-        {fileError && <p className="text-red-600 text-sm">{fileError}</p>}
-
-        {imagePreview && (
-          <img src={imagePreview} alt="Uploaded preview" className="max-h-40 mx-auto mt-2 rounded shadow" />
-        )}
-
-        {fileText && (
-          <div className="text-sm text-gray-600 border border-gray-200 bg-gray-50 p-3 rounded">
-            <strong>File loaded:</strong> {fileName}
-            <pre className="whitespace-pre-wrap mt-2 max-h-40 overflow-auto">
-              {fileText.slice(0, 1000)}
-              {fileText.length > 1000 && '... (truncated)'}
-            </pre>
-          </div>
-        )}
-
         <button
           type="submit"
           disabled={loading}
@@ -205,51 +96,31 @@ export default function Home() {
 
       {response && (
         <>
-          <div className="bg-white text-black mt-8 border border-gray-300 p-6">
-            <p><strong>Date:</strong> {new Date().toLocaleDateString()}</p>
-            <p><strong>Tone:</strong> {tone}</p>
-            <p><strong>Question:</strong> {prompt}</p>
-            <hr className="my-2" />
-            <p><strong>Response:</strong></p>
-            {response.split('\n').map((line, i) => (
-              <p key={i}>{line}</p>
-            ))}
-          </div>
-
-          {/* Static PDF target */}
+          {/* Printable Block */}
           <div
-            id="printable"
+            id="printable-block"
+            className="mt-8 p-8 border border-gray-300 shadow-md bg-white text-black text-base"
             style={{
               width: '8.5in',
               minHeight: '11in',
-              backgroundColor: '#ffffff',
-              color: '#000000',
               fontFamily: 'Arial, sans-serif',
-              fontSize: '14px',
               lineHeight: '1.6',
-              padding: '1in',
-              position: 'absolute',
-              left: '-9999px',
-              top: 0,
               whiteSpace: 'pre-wrap',
-              overflowWrap: 'break-word',
               boxSizing: 'border-box'
             }}
           >
-            <h2>Custody Coach Response</h2>
+            <h2 className="text-xl font-bold mb-4">MyCustodyCoach Response</h2>
             <p><strong>Date:</strong> {new Date().toLocaleDateString()}</p>
             <p><strong>Tone:</strong> {tone}</p>
             <p><strong>Question:</strong> {prompt}</p>
-            <hr />
+            <hr className="my-4" />
             <p><strong>Response:</strong></p>
-            {response.split('\n').map((line, i) => (
-              <p key={i}>{line}</p>
-            ))}
+            <div>{response}</div>
           </div>
 
           <button
             onClick={handleDownloadPDF}
-            className="mt-4 w-full bg-green-600 text-white p-3 rounded hover:bg-green-700 transition"
+            className="mt-6 w-full bg-green-600 text-white p-3 rounded hover:bg-green-700 transition"
           >
             Download PDF
           </button>
