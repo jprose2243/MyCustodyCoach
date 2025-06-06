@@ -27,7 +27,7 @@ export default function Home() {
     }
 
     const opt = {
-      margin: 0.5,
+      margin: 0,
       filename: 'MyCustodyCoach_Response.pdf',
       image: { type: 'jpeg', quality: 0.98 },
       html2canvas: {
@@ -41,7 +41,7 @@ export default function Home() {
       },
       pagebreak: {
         mode: ['css', 'legacy'],
-        avoid: 'p', // prevent breaks mid-paragraph
+        avoid: 'p',
       },
     };
 
@@ -143,17 +143,8 @@ export default function Home() {
         body: JSON.stringify({ prompt, tone, fileContext: fileText }),
       });
 
-      let data;
-      try {
-        data = await res.json();
-      } catch {
-        throw new Error('Server returned an empty or invalid response.');
-      }
-
-      if (!res.ok) {
-        throw new Error(data.error || 'Something went wrong.');
-      }
-
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Something went wrong');
       setResponse(data.result);
     } catch (err: any) {
       setError(err.message || 'Unexpected error.');
@@ -225,20 +216,18 @@ export default function Home() {
           <div
             ref={pdfRef}
             data-download-content=""
-            className="pdf-content"
             style={{
-              width: '100%',
-              maxWidth: '600px',
-              padding: '24px',
+              width: '8.5in',
+              minHeight: '11in',
+              padding: '1in',
               backgroundColor: 'white',
               color: '#111',
               fontSize: '14px',
               lineHeight: '1.6',
               border: '1px solid #ccc',
-              marginTop: '24px',
+              boxSizing: 'border-box',
               whiteSpace: 'pre-wrap',
               overflowWrap: 'break-word',
-              boxSizing: 'border-box',
             }}
           >
             <p><strong>Date:</strong> {new Date().toLocaleDateString()}</p>
@@ -246,7 +235,7 @@ export default function Home() {
             <p><strong>Question:</strong> {prompt}</p>
             <hr style={{ margin: '12px 0' }} />
             <p><strong>Response:</strong></p>
-            <p style={{ pageBreakInside: 'avoid' }}>{response}</p>
+            <p>{response}</p>
           </div>
 
           <button
