@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 
 export default function Home() {
   const [prompt, setPrompt] = useState('');
@@ -13,41 +13,22 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const renderHtmlForPDF = () => {
-    return `
-      <div style="
-        width: 8.5in;
-        min-height: 11in;
-        padding: 1in;
-        margin: 0;
-        font-family: Arial, sans-serif;
-        font-size: 14px;
-        line-height: 1.6;
-        background-color: white;
-        color: black;
-        box-sizing: border-box;
-      ">
-        <p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
-        <p><strong>Tone:</strong> ${tone}</p>
-        <p><strong>Question:</strong> ${prompt}</p>
-        <hr style="margin: 12px 0;" />
-        <p><strong>Response:</strong></p>
-        <p>${response.replace(/\n/g, '<br>')}</p>
-      </div>
-    `;
-  };
+  const printableRef = useRef<HTMLDivElement>(null);
 
   const handleDownloadPDF = () => {
-    if (typeof window === 'undefined' || !(window as any).html2pdf) {
+    if (
+      typeof window === 'undefined' ||
+      !(window as any).html2pdf ||
+      !printableRef.current
+    ) {
       alert('PDF export not available.');
       return;
     }
 
-    const container = document.createElement('div');
-    container.innerHTML = renderHtmlForPDF();
-    container.style.position = 'absolute';
-    container.style.left = '-9999px';
-    document.body.appendChild(container);
+    const clone = printableRef.current.cloneNode(true) as HTMLElement;
+    clone.style.position = 'absolute';
+    clone.style.left = '-9999px';
+    document.body.appendChild(clone);
 
     const opt = {
       margin: 0,
@@ -64,16 +45,15 @@ export default function Home() {
       },
       pagebreak: {
         mode: ['css', 'legacy'],
-        avoid: 'p',
       },
     };
 
     (window as any).html2pdf()
       .set(opt)
-      .from(container)
+      .from(clone)
       .save()
-      .then(() => document.body.removeChild(container))
-      .catch(() => document.body.removeChild(container));
+      .then(() => document.body.removeChild(clone))
+      .catch(() => document.body.removeChild(clone));
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -240,14 +220,46 @@ export default function Home() {
       {error && <p className="mt-4 text-red-600">{error}</p>}
 
       {response && (
-        <div>
+        <>
+          {/* Live Preview */}
           <div className="bg-white text-black mt-8 border border-gray-300 p-6">
             <p><strong>Date:</strong> {new Date().toLocaleDateString()}</p>
             <p><strong>Tone:</strong> {tone}</p>
             <p><strong>Question:</strong> {prompt}</p>
             <hr className="my-2" />
             <p><strong>Response:</strong></p>
-            <p>{response}</p>
+            {response.split('\n').map((line, i) => (
+              <p key={i}>{line}</p>
+            ))}
+          </div>
+
+          {/* Hidden printable copy */}
+          <div
+            ref={printableRef}
+            style={{
+              position: 'absolute',
+              left: '-9999px',
+              width: '8.5in',
+              minHeight: '11in',
+              padding: '1in',
+              fontFamily: 'Arial, sans-serif',
+              fontSize: '14px',
+              lineHeight: '1.6',
+              color: '#000',
+              backgroundColor: '#fff',
+              boxSizing: 'border-box',
+              whiteSpace: 'pre-wrap',
+              overflowWrap: 'break-word',
+            }}
+          >
+            <p><strong>Date:</strong> {new Date().toLocaleDateString()}</p>
+            <p><strong>Tone:</strong> {tone}</p>
+            <p><strong>Question:</strong> {prompt}</p>
+            <hr />
+            <p><strong>Response:</strong></p>
+            {response.split('\n').map((line, i) => (
+              `<p>${line}</p>`
+            ))}
           </div>
 
           <button
@@ -256,7 +268,7 @@ export default function Home() {
           >
             Download PDF
           </button>
-        </div>
+        </>
       )}
     </main>
   );
