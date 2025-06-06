@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
+import html2pdf from 'html2pdf.js';
 
 export default function Home() {
   const [prompt, setPrompt] = useState('');
@@ -8,126 +9,164 @@ export default function Home() {
   const [response, setResponse] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const pdfRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [fileContext, setFileContext] = useState('');
+  const pdfRef = useRef<HTMLDivElement | null>(null);
 
-  const handleDownloadPDF = () => {
-    const block = document.getElementById('pdf-block');
-    if (!block || !(window as any).html2pdf) {
-      alert('PDF export failed. Library or content not found.');
-      return;
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const ext = file.name.split('.').pop()?.toLowerCase();
+    try {
+      if (ext === 'txt') {
+        const text = await file.text();
+        setFileContext(text.slice(0, 1000));
+      } else if (ext === 'pdf') {
+        const pdfjsLib = await import('pdfjs-dist/build/pdf');
+        const pdfjsWorker = await import('pdfjs-dist/build/pdf.worker.entry');
+        pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        let text = '';
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const content = await page.getTextContent();
+          text += content.items.map((item: any) => item.str).join(' ') + '\n';
+        }
+        setFileContext(text.slice(0, 1000));
+      } else if (['png', 'jpg', 'jpeg'].includes(ext)) {
+        const Tesseract = await import('tesseract.js');
+        const {
+          data: { text },
+        } = await Tesseract.recognize(file, 'eng');
+        setFileContext(text.slice(0, 1000));
+      } else {
+        alert('Unsupported file type.');
+      }
+    } catch (err) {
+      console.error(err);
+      setError('Failed to extract text from file.');
     }
-
-    const opt = {
-      margin: 0,
-      filename: 'MyCustodyCoach_Response.pdf',
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: '#ffffff',
-      },
-      jsPDF: {
-        unit: 'in',
-        format: 'letter',
-        orientation: 'portrait',
-      },
-      pagebreak: { mode: ['css', 'legacy'] },
-    };
-
-    (window as any).html2pdf().set(opt).from(block).save();
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleGenerate = async () => {
     setLoading(true);
     setError('');
     setResponse('');
 
     try {
-      const res = await fetch('/api/generate', {
+      const res = await fetch('/api/generate/route', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, tone }),
+        body: JSON.stringify({ prompt, tone, fileContext }),
       });
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Something went wrong');
-      setResponse(data.result);
-    } catch (err: any) {
-      setError(err.message || 'Unexpected error. Try again.');
-    } finally {
-      setLoading(false);
+      const json = await res.json();
+      if (!res.ok || !json.result) throw new Error('Bad response');
+      setResponse(json.result);
+    } catch (err) {
+      console.error(err);
+      setError('Something went wrong. Please try again.');
     }
+
+    setLoading(false);
+  };
+
+  const handleDownloadPDF = () => {
+    const element = document.getElementById('pdf-content');
+    if (!element) return;
+
+    const clone = element.cloneNode(true) as HTMLElement;
+    clone.style.width = '800px';
+    clone.style.padding = '20px';
+    clone.style.color = '#000';
+    clone.style.fontSize = '14px';
+    clone.style.background = '#fff';
+
+    const paragraphs = clone.querySelectorAll('p');
+    paragraphs.forEach((p) => {
+      p.style.marginBottom = '0.8rem';
+      p.style.lineHeight = '1.6';
+    });
+
+    const opt = {
+      margin: 0,
+      filename: 'MyCustodyCoach_Response.pdf',
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true },
+      jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' },
+      pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },
+    };
+
+    html2pdf().from(clone).set(opt).save();
   };
 
   return (
-    <main className="max-w-2xl mx-auto px-4 py-10 text-gray-900">
-      <h1 className="text-3xl font-bold text-center mb-6">MyCustodyCoach</h1>
+    <main className="min-h-screen p-6 bg-black text-white font-sans">
+      <h1 className="text-3xl font-bold text-center mb-6 text-white">MyCustodyCoach</h1>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <textarea
-          rows={5}
-          placeholder="Paste your court question here..."
-          className="w-full p-3 border border-gray-300 rounded"
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-          required
-        />
+      <textarea
+        value={prompt}
+        onChange={(e) => setPrompt(e.target.value)}
+        placeholder="Paste your court question here..."
+        className="w-full p-4 rounded border border-gray-700 bg-gray-900 text-white"
+        rows={5}
+      />
 
-        <select
-          className="w-full p-3 border border-gray-300 rounded"
-          value={tone}
-          onChange={(e) => setTone(e.target.value)}
-        >
-          <option value="calm">Tone: Calm</option>
-          <option value="firm">Tone: Firm</option>
-          <option value="cooperative">Tone: Cooperative</option>
-        </select>
+      <select
+        value={tone}
+        onChange={(e) => setTone(e.target.value)}
+        className="w-full mt-4 p-3 rounded border border-gray-700 bg-gray-900 text-white"
+      >
+        <option value="calm">Tone: Calm</option>
+        <option value="firm">Tone: Firm</option>
+        <option value="cooperative">Tone: Cooperative</option>
+      </select>
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full bg-blue-600 text-white p-3 rounded hover:bg-blue-700 transition"
-        >
-          {loading ? 'Generating...' : 'Generate Response'}
-        </button>
-      </form>
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileUpload}
+        accept=".txt,.pdf,.png,.jpg,.jpeg"
+        className="w-full mt-4 p-3 rounded border border-gray-700 bg-gray-900 text-white"
+      />
 
-      {error && <p className="mt-4 text-red-600">{error}</p>}
+      <button
+        onClick={handleGenerate}
+        disabled={loading}
+        className="w-full mt-4 p-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded transition"
+      >
+        {loading ? 'Generating...' : 'Generate Response'}
+      </button>
+
+      {error && <p className="mt-4 text-red-400 text-center">{error}</p>}
 
       {response && (
         <>
           <div
-            id="pdf-block"
-            style={{
-              width: '8.5in',
-              minHeight: '11in',
-              backgroundColor: '#ffffff',
-              color: '#000000',
-              fontSize: '14px',
-              fontFamily: 'Arial, sans-serif',
-              lineHeight: '1.6',
-              padding: '2rem',
-              marginTop: '2rem',
-              border: '1px solid #ccc',
-              boxSizing: 'border-box',
-              whiteSpace: 'pre-wrap',
-            }}
+            id="pdf-content"
+            className="mt-8 bg-white text-black p-8 rounded shadow-lg mx-auto max-w-3xl"
           >
-            <h2 style={{ fontSize: '20px', fontWeight: 'bold', marginBottom: '1rem' }}>
-              MyCustodyCoach Response
-            </h2>
-            <p><strong>Date:</strong> {new Date().toLocaleDateString()}</p>
-            <p><strong>Tone:</strong> {tone}</p>
-            <p><strong>Question:</strong> {prompt}</p>
-            <hr style={{ margin: '1rem 0' }} />
-            <p><strong>Response:</strong></p>
-            <p>{response}</p>
+            <h2 className="text-2xl font-bold mb-4">MyCustodyCoach Response</h2>
+            <p>
+              <strong>Date:</strong> {new Date().toLocaleDateString()}
+            </p>
+            <p>
+              <strong>Tone:</strong> {tone}
+            </p>
+            <p>
+              <strong>Question:</strong> {prompt}
+            </p>
+            <hr className="my-4" />
+            <p className="whitespace-pre-line leading-7">
+              <strong>Response:</strong> {response}
+            </p>
           </div>
 
           <button
             onClick={handleDownloadPDF}
-            className="mt-6 w-full bg-green-600 text-white p-3 rounded hover:bg-green-700 transition"
+            className="w-full mt-6 p-4 bg-green-600 hover:bg-green-700 text-white font-bold rounded transition"
           >
             Download PDF
           </button>
