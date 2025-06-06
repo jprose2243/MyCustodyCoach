@@ -220,14 +220,16 @@ export default function Home() {
               width: '8.5in',
               minHeight: '11in',
               padding: '1in',
+              margin: 0,
               backgroundColor: 'white',
               color: '#111',
               fontSize: '14px',
               lineHeight: '1.6',
-              border: '1px solid #ccc',
+              border: 'none',
               boxSizing: 'border-box',
               whiteSpace: 'pre-wrap',
               overflowWrap: 'break-word',
+              position: 'relative',
             }}
           >
             <p><strong>Date:</strong> {new Date().toLocaleDateString()}</p>
