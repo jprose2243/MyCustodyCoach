@@ -29,7 +29,25 @@ export default function Home() {
     const clone = source.cloneNode(true) as HTMLElement;
     clone.style.position = 'absolute';
     clone.style.left = '-9999px';
-    clone.style.color = '#000'; // 🟢 force black text
+    clone.style.width = '8.5in';
+    clone.style.minHeight = '11in';
+    clone.style.padding = '1in';
+    clone.style.backgroundColor = 'white';
+    clone.style.color = '#000';
+    clone.style.fontSize = '14px';
+    clone.style.lineHeight = '1.6';
+    clone.style.boxSizing = 'border-box';
+    clone.style.overflowWrap = 'break-word';
+    clone.style.whiteSpace = 'pre-wrap';
+    clone.style.fontFamily = 'Arial, sans-serif';
+
+    clone.querySelectorAll('*').forEach(el => {
+      const elem = el as HTMLElement;
+      elem.style.color = '#000';
+      elem.style.fontFamily = 'Arial, sans-serif';
+      elem.style.backgroundColor = 'white';
+    });
+
     document.body.appendChild(clone);
 
     const opt = {
