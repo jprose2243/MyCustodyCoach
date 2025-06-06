@@ -1,172 +1,135 @@
-'use client';
+"use client";
 
-import { useState, useRef } from 'react';
-import html2pdf from 'html2pdf.js';
+import { useState, useRef } from "react";
 
 export default function Home() {
-  const [prompt, setPrompt] = useState('');
-  const [tone, setTone] = useState('calm');
-  const [response, setResponse] = useState('');
+  const [prompt, setPrompt] = useState("");
+  const [tone, setTone] = useState("Calm");
+  const [file, setFile] = useState<File | null>(null);
+  const [response, setResponse] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const [fileContext, setFileContext] = useState('');
-  const pdfRef = useRef<HTMLDivElement | null>(null);
+  const [error, setError] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const ext = file.name.split('.').pop()?.toLowerCase();
-    try {
-      if (ext === 'txt') {
-        const text = await file.text();
-        setFileContext(text.slice(0, 1000));
-      } else if (ext === 'pdf') {
-        const pdfjsLib = await import('pdfjs-dist/build/pdf');
-        const pdfjsWorker = await import('pdfjs-dist/build/pdf.worker.entry');
-        pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
-        const arrayBuffer = await file.arrayBuffer();
-        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-        let text = '';
-        for (let i = 1; i <= pdf.numPages; i++) {
-          const page = await pdf.getPage(i);
-          const content = await page.getTextContent();
-          text += content.items.map((item: any) => item.str).join(' ') + '\n';
-        }
-        setFileContext(text.slice(0, 1000));
-      } else if (['png', 'jpg', 'jpeg'].includes(ext)) {
-        const Tesseract = await import('tesseract.js');
-        const {
-          data: { text },
-        } = await Tesseract.recognize(file, 'eng');
-        setFileContext(text.slice(0, 1000));
-      } else {
-        alert('Unsupported file type.');
-      }
-    } catch (err) {
-      console.error(err);
-      setError('Failed to extract text from file.');
-    }
-  };
-
-  const handleGenerate = async () => {
+  const handleSubmit = async () => {
     setLoading(true);
-    setError('');
-    setResponse('');
+    setError("");
+    setResponse("");
 
-    try {
-      const res = await fetch('/api/generate/route', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, tone, fileContext }),
-      });
+    let fileText = "";
 
-      const json = await res.json();
-      if (!res.ok || !json.result) throw new Error('Bad response');
-      setResponse(json.result);
-    } catch (err) {
-      console.error(err);
-      setError('Something went wrong. Please try again.');
+    if (file) {
+      const ext = file.name.split(".").pop()?.toLowerCase();
+      const buffer = await file.arrayBuffer();
+
+      try {
+        if (ext === "pdf") {
+          const pdfjsLib = await import("pdfjs-dist/build/pdf");
+          const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
+          for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i);
+            const textContent = await page.getTextContent();
+            fileText += textContent.items.map((item: any) => item.str).join(" ") + "\n";
+          }
+        } else if (["png", "jpg", "jpeg"].includes(ext || "")) {
+          const Tesseract = (await import("tesseract.js")).default;
+          const { data } = await Tesseract.recognize(file);
+          fileText = data.text;
+        } else if (["txt", "md"].includes(ext || "")) {
+          fileText = await file.text();
+        }
+      } catch (err) {
+        setError("Failed to read file: " + (err as Error).message);
+        setLoading(false);
+        return;
+      }
     }
 
-    setLoading(false);
+    try {
+      const res = await fetch("/api/generate", {
+        method: "POST",
+        body: JSON.stringify({ prompt, tone, fileContext: fileText }),
+      });
+      const json = await res.json();
+      if (json.result) setResponse(json.result);
+      else setError("Server returned empty or invalid response.");
+    } catch (err) {
+      setError("Failed to generate response.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleDownloadPDF = () => {
-    const element = document.getElementById('pdf-content');
-    if (!element) return;
-
-    const clone = element.cloneNode(true) as HTMLElement;
-    clone.style.width = '800px';
-    clone.style.padding = '20px';
-    clone.style.color = '#000';
-    clone.style.fontSize = '14px';
-    clone.style.background = '#fff';
-
-    const paragraphs = clone.querySelectorAll('p');
-    paragraphs.forEach((p) => {
-      p.style.marginBottom = '0.8rem';
-      p.style.lineHeight = '1.6';
-    });
-
-    const opt = {
-      margin: 0,
-      filename: 'MyCustodyCoach_Response.pdf',
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2, useCORS: true },
-      jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' },
-      pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },
-    };
-
-    html2pdf().from(clone).set(opt).save();
+    const sourceElement = document.querySelector('[data-download-content]');
+    if (!sourceElement || !window.html2pdf) return alert("PDF export failed.");
+    window.html2pdf().from(sourceElement).set({
+      margin: 0.5,
+      filename: "MyCustodyCoach_Response.pdf",
+      pagebreak: { mode: ["css", "legacy"] },
+      jsPDF: { unit: "in", format: "letter", orientation: "portrait" },
+    }).save();
   };
 
   return (
-    <main className="min-h-screen p-6 bg-black text-white font-sans">
-      <h1 className="text-3xl font-bold text-center mb-6 text-white">MyCustodyCoach</h1>
+    <main className="min-h-screen bg-black text-white px-4 py-8 font-sans">
+      <h1 className="text-3xl font-bold mb-6">MyCustodyCoach</h1>
 
       <textarea
+        className="w-full h-32 p-3 text-black"
+        placeholder="Paste your court question here..."
         value={prompt}
         onChange={(e) => setPrompt(e.target.value)}
-        placeholder="Paste your court question here..."
-        className="w-full p-4 rounded border border-gray-700 bg-gray-900 text-white"
-        rows={5}
       />
 
       <select
+        className="w-full mt-3 p-2 text-black"
         value={tone}
         onChange={(e) => setTone(e.target.value)}
-        className="w-full mt-4 p-3 rounded border border-gray-700 bg-gray-900 text-white"
       >
-        <option value="calm">Tone: Calm</option>
-        <option value="firm">Tone: Firm</option>
-        <option value="cooperative">Tone: Cooperative</option>
+        <option>Calm</option>
+        <option>Formal</option>
+        <option>Supportive</option>
+        <option>Cooperative</option>
       </select>
 
       <input
         type="file"
         ref={fileInputRef}
-        onChange={handleFileUpload}
-        accept=".txt,.pdf,.png,.jpg,.jpeg"
-        className="w-full mt-4 p-3 rounded border border-gray-700 bg-gray-900 text-white"
+        className="w-full mt-3 p-2 text-white"
+        onChange={(e) => setFile(e.target.files?.[0] || null)}
       />
 
       <button
-        onClick={handleGenerate}
+        className="bg-blue-600 hover:bg-blue-700 text-white mt-4 py-2 px-6"
+        onClick={handleSubmit}
         disabled={loading}
-        className="w-full mt-4 p-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded transition"
       >
-        {loading ? 'Generating...' : 'Generate Response'}
+        {loading ? "Generating..." : "Generate Response"}
       </button>
 
-      {error && <p className="mt-4 text-red-400 text-center">{error}</p>}
+      {error && <p className="text-red-400 mt-4">{error}</p>}
 
       {response && (
         <>
           <div
-            id="pdf-content"
-            className="mt-8 bg-white text-black p-8 rounded shadow-lg mx-auto max-w-3xl"
+            data-download-content
+            className="bg-white text-black mt-8 p-6 w-full max-w-2xl"
           >
             <h2 className="text-2xl font-bold mb-4">MyCustodyCoach Response</h2>
-            <p>
-              <strong>Date:</strong> {new Date().toLocaleDateString()}
-            </p>
-            <p>
-              <strong>Tone:</strong> {tone}
-            </p>
-            <p>
-              <strong>Question:</strong> {prompt}
-            </p>
-            <hr className="my-4" />
-            <p className="whitespace-pre-line leading-7">
-              <strong>Response:</strong> {response}
-            </p>
+            <p><strong>Date:</strong> {new Date().toLocaleDateString()}</p>
+            <p><strong>Tone:</strong> {tone}</p>
+            <p><strong>Question:</strong> {prompt}</p>
+            <hr className="my-2" />
+            <p><strong>Response:</strong></p>
+            {response.split("\n").map((line, i) => (
+              <p key={i}>{line}</p>
+            ))}
           </div>
 
           <button
             onClick={handleDownloadPDF}
-            className="w-full mt-6 p-4 bg-green-600 hover:bg-green-700 text-white font-bold rounded transition"
+            className="bg-green-600 hover:bg-green-700 text-white mt-6 py-2 px-6"
           >
             Download PDF
           </button>
