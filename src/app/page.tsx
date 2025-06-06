@@ -8,12 +8,12 @@ export default function Home() {
   const [response, setResponse] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const blockRef = useRef<HTMLDivElement>(null);
+  const pdfRef = useRef<HTMLDivElement>(null);
 
   const handleDownloadPDF = () => {
     const block = document.getElementById('pdf-block');
     if (!block || !(window as any).html2pdf) {
-      alert('Export failed: pdf block or library missing.');
+      alert('PDF export failed. Library or content not found.');
       return;
     }
 
@@ -54,7 +54,7 @@ export default function Home() {
       if (!res.ok) throw new Error(data.error || 'Something went wrong');
       setResponse(data.result);
     } catch (err: any) {
-      setError(err.message || 'Unexpected error.');
+      setError(err.message || 'Unexpected error. Try again.');
     } finally {
       setLoading(false);
     }
@@ -66,8 +66,8 @@ export default function Home() {
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <textarea
-          rows={6}
-          placeholder="Ask your custody-related question..."
+          rows={5}
+          placeholder="Paste your court question here..."
           className="w-full p-3 border border-gray-300 rounded"
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
@@ -97,27 +97,32 @@ export default function Home() {
 
       {response && (
         <>
-          {/* Final Visible Printable Block */}
           <div
             id="pdf-block"
-            className="mt-10 p-8 border border-gray-300 shadow-md text-black bg-white"
             style={{
               width: '8.5in',
               minHeight: '11in',
+              backgroundColor: '#ffffff',
+              color: '#000000',
               fontSize: '14px',
               fontFamily: 'Arial, sans-serif',
               lineHeight: '1.6',
+              padding: '2rem',
+              marginTop: '2rem',
+              border: '1px solid #ccc',
+              boxSizing: 'border-box',
               whiteSpace: 'pre-wrap',
-              boxSizing: 'border-box'
             }}
           >
-            <h2 className="text-xl font-bold mb-4">MyCustodyCoach Response</h2>
+            <h2 style={{ fontSize: '20px', fontWeight: 'bold', marginBottom: '1rem' }}>
+              MyCustodyCoach Response
+            </h2>
             <p><strong>Date:</strong> {new Date().toLocaleDateString()}</p>
             <p><strong>Tone:</strong> {tone}</p>
             <p><strong>Question:</strong> {prompt}</p>
-            <hr className="my-4" />
+            <hr style={{ margin: '1rem 0' }} />
             <p><strong>Response:</strong></p>
-            <div>{response}</div>
+            <p>{response}</p>
           </div>
 
           <button
