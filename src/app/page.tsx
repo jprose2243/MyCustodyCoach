@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 
 export default function Home() {
   const [prompt, setPrompt] = useState('');
@@ -8,11 +8,12 @@ export default function Home() {
   const [response, setResponse] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const blockRef = useRef<HTMLDivElement>(null);
 
   const handleDownloadPDF = () => {
-    const block = document.getElementById('printable-block');
+    const block = document.getElementById('pdf-block');
     if (!block || !(window as any).html2pdf) {
-      alert('Could not find printable block or html2pdf.js is missing');
+      alert('Export failed: pdf block or library missing.');
       return;
     }
 
@@ -23,14 +24,14 @@ export default function Home() {
       html2canvas: {
         scale: 2,
         useCORS: true,
-        backgroundColor: '#ffffff'
+        backgroundColor: '#ffffff',
       },
       jsPDF: {
         unit: 'in',
         format: 'letter',
-        orientation: 'portrait'
+        orientation: 'portrait',
       },
-      pagebreak: { mode: ['css', 'legacy'] }
+      pagebreak: { mode: ['css', 'legacy'] },
     };
 
     (window as any).html2pdf().set(opt).from(block).save();
@@ -60,13 +61,13 @@ export default function Home() {
   };
 
   return (
-    <main className="max-w-2xl mx-auto mt-16 px-4 text-gray-900 bg-white">
+    <main className="max-w-2xl mx-auto px-4 py-10 text-gray-900">
       <h1 className="text-3xl font-bold text-center mb-6">MyCustodyCoach</h1>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <textarea
           rows={6}
-          placeholder="Enter your court-related question here..."
+          placeholder="Ask your custody-related question..."
           className="w-full p-3 border border-gray-300 rounded"
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
@@ -96,13 +97,14 @@ export default function Home() {
 
       {response && (
         <>
-          {/* Printable Block */}
+          {/* Final Visible Printable Block */}
           <div
-            id="printable-block"
-            className="mt-8 p-8 border border-gray-300 shadow-md bg-white text-black text-base"
+            id="pdf-block"
+            className="mt-10 p-8 border border-gray-300 shadow-md text-black bg-white"
             style={{
               width: '8.5in',
               minHeight: '11in',
+              fontSize: '14px',
               fontFamily: 'Arial, sans-serif',
               lineHeight: '1.6',
               whiteSpace: 'pre-wrap',
