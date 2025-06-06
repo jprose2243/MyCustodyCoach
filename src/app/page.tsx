@@ -12,43 +12,42 @@ export default function Home() {
   const [response, setResponse] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const pdfRef = useRef<HTMLDivElement>(null);
+
+  const renderHtmlForPDF = () => {
+    return `
+      <div style="
+        width: 8.5in;
+        min-height: 11in;
+        padding: 1in;
+        margin: 0;
+        font-family: Arial, sans-serif;
+        font-size: 14px;
+        line-height: 1.6;
+        background-color: white;
+        color: black;
+        box-sizing: border-box;
+      ">
+        <p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
+        <p><strong>Tone:</strong> ${tone}</p>
+        <p><strong>Question:</strong> ${prompt}</p>
+        <hr style="margin: 12px 0;" />
+        <p><strong>Response:</strong></p>
+        <p>${response.replace(/\n/g, '<br>')}</p>
+      </div>
+    `;
+  };
 
   const handleDownloadPDF = () => {
-    const source = pdfRef.current;
-
-    if (
-      typeof window === 'undefined' ||
-      !(window as any).html2pdf ||
-      !source
-    ) {
-      alert('PDF export not available. Try again in a moment.');
+    if (typeof window === 'undefined' || !(window as any).html2pdf) {
+      alert('PDF export not available.');
       return;
     }
 
-    const clone = source.cloneNode(true) as HTMLElement;
-    clone.style.position = 'absolute';
-    clone.style.left = '-9999px';
-    clone.style.width = '8.5in';
-    clone.style.minHeight = '11in';
-    clone.style.padding = '1in';
-    clone.style.backgroundColor = 'white';
-    clone.style.color = '#000';
-    clone.style.fontSize = '14px';
-    clone.style.lineHeight = '1.6';
-    clone.style.boxSizing = 'border-box';
-    clone.style.overflowWrap = 'break-word';
-    clone.style.whiteSpace = 'pre-wrap';
-    clone.style.fontFamily = 'Arial, sans-serif';
-
-    clone.querySelectorAll('*').forEach(el => {
-      const elem = el as HTMLElement;
-      elem.style.color = '#000';
-      elem.style.fontFamily = 'Arial, sans-serif';
-      elem.style.backgroundColor = 'white';
-    });
-
-    document.body.appendChild(clone);
+    const container = document.createElement('div');
+    container.innerHTML = renderHtmlForPDF();
+    container.style.position = 'absolute';
+    container.style.left = '-9999px';
+    document.body.appendChild(container);
 
     const opt = {
       margin: 0,
@@ -71,10 +70,10 @@ export default function Home() {
 
     (window as any).html2pdf()
       .set(opt)
-      .from(clone)
+      .from(container)
       .save()
-      .then(() => document.body.removeChild(clone))
-      .catch(() => document.body.removeChild(clone));
+      .then(() => document.body.removeChild(container))
+      .catch(() => document.body.removeChild(container));
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -242,29 +241,11 @@ export default function Home() {
 
       {response && (
         <div>
-          <div
-            ref={pdfRef}
-            data-download-content=""
-            style={{
-              width: '8.5in',
-              minHeight: '11in',
-              padding: '1in',
-              margin: 0,
-              backgroundColor: 'white',
-              color: '#000',
-              fontSize: '14px',
-              lineHeight: '1.6',
-              border: 'none',
-              boxSizing: 'border-box',
-              whiteSpace: 'pre-wrap',
-              overflowWrap: 'break-word',
-              position: 'relative',
-            }}
-          >
+          <div className="bg-white text-black mt-8 border border-gray-300 p-6">
             <p><strong>Date:</strong> {new Date().toLocaleDateString()}</p>
             <p><strong>Tone:</strong> {tone}</p>
             <p><strong>Question:</strong> {prompt}</p>
-            <hr style={{ margin: '12px 0' }} />
+            <hr className="my-2" />
             <p><strong>Response:</strong></p>
             <p>{response}</p>
           </div>
