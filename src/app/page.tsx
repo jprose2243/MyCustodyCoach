@@ -15,16 +15,21 @@ export default function Home() {
   const pdfRef = useRef<HTMLDivElement>(null);
 
   const handleDownloadPDF = () => {
-    const element = pdfRef.current;
+    const source = pdfRef.current;
 
     if (
       typeof window === 'undefined' ||
       !(window as any).html2pdf ||
-      !element
+      !source
     ) {
       alert('PDF export not available. Try again in a moment.');
       return;
     }
+
+    const clone = source.cloneNode(true) as HTMLElement;
+    clone.style.position = 'absolute';
+    clone.style.left = '-9999px';
+    document.body.appendChild(clone);
 
     const opt = {
       margin: 0,
@@ -45,7 +50,12 @@ export default function Home() {
       },
     };
 
-    (window as any).html2pdf().set(opt).from(element).save();
+    (window as any).html2pdf()
+      .set(opt)
+      .from(clone)
+      .save()
+      .then(() => document.body.removeChild(clone))
+      .catch(() => document.body.removeChild(clone));
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
