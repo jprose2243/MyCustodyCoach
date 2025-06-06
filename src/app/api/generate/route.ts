@@ -39,6 +39,9 @@ export async function POST(req: NextRequest) {
 
     const json = await openaiRes.json();
 
+    // ✅ ADD THIS LINE for debugging
+    console.log('OpenAI raw response:', JSON.stringify(json, null, 2));
+
     const result = json.choices?.[0]?.message?.content;
 
     if (!result || result.length < 10) {
