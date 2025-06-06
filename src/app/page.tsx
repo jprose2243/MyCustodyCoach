@@ -29,6 +29,7 @@ export default function Home() {
     const clone = source.cloneNode(true) as HTMLElement;
     clone.style.position = 'absolute';
     clone.style.left = '-9999px';
+    clone.style.color = '#000'; // 🟢 force black text
     document.body.appendChild(clone);
 
     const opt = {
@@ -232,7 +233,7 @@ export default function Home() {
               padding: '1in',
               margin: 0,
               backgroundColor: 'white',
-              color: '#111',
+              color: '#000',
               fontSize: '14px',
               lineHeight: '1.6',
               border: 'none',
