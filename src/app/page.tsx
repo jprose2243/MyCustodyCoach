@@ -2,6 +2,8 @@
 
 import { useState, useRef } from 'react';
 
+// debug: force redeploy for layout fix
+
 export default function Home() {
   const [prompt, setPrompt] = useState('');
   const [tone, setTone] = useState('calm');
@@ -55,7 +57,7 @@ export default function Home() {
         .save();
     } catch (err) {
       console.error(err);
-      alert('Something went wrong while trying to download the PDF.');
+      alert('Something went wrong while generating the PDF.');
     }
   }
 
@@ -89,9 +91,7 @@ export default function Home() {
         {loading ? 'Generating...' : 'Generate Response'}
       </button>
 
-      {error && (
-        <p className="text-red-400 mt-4">{error}</p>
-      )}
+      {error && <p className="text-red-400 mt-4">{error}</p>}
 
       {response && (
         <>
