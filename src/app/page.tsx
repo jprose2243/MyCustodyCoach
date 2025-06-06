@@ -25,11 +25,6 @@ export default function Home() {
       return;
     }
 
-    const clone = printableRef.current.cloneNode(true) as HTMLElement;
-    clone.style.position = 'absolute';
-    clone.style.left = '-9999px';
-    document.body.appendChild(clone);
-
     const opt = {
       margin: 0,
       filename: 'MyCustodyCoach_Response.pdf',
@@ -37,23 +32,31 @@ export default function Home() {
       html2canvas: {
         scale: 2,
         useCORS: true,
+        logging: true,
+        backgroundColor: '#ffffff',
       },
       jsPDF: {
         unit: 'in',
         format: 'letter',
         orientation: 'portrait',
       },
-      pagebreak: {
-        mode: ['css', 'legacy'],
-      },
+      pagebreak: { mode: ['css', 'legacy'] },
     };
+
+    const element = printableRef.current;
 
     (window as any).html2pdf()
       .set(opt)
-      .from(clone)
+      .from(element)
+      .toPdf()
+      .get('pdf')
+      .then((pdf: any) => {
+        console.log('✅ PDF ready:', pdf);
+      })
       .save()
-      .then(() => document.body.removeChild(clone))
-      .catch(() => document.body.removeChild(clone));
+      .catch((err: any) => {
+        console.error('❌ PDF error:', err);
+      });
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -221,7 +224,7 @@ export default function Home() {
 
       {response && (
         <>
-          {/* Live Preview */}
+          {/* Live preview */}
           <div className="bg-white text-black mt-8 border border-gray-300 p-6">
             <p><strong>Date:</strong> {new Date().toLocaleDateString()}</p>
             <p><strong>Tone:</strong> {tone}</p>
@@ -233,7 +236,7 @@ export default function Home() {
             ))}
           </div>
 
-          {/* Hidden printable copy */}
+          {/* Printable offscreen version */}
           <div
             ref={printableRef}
             style={{
@@ -258,7 +261,7 @@ export default function Home() {
             <hr />
             <p><strong>Response:</strong></p>
             {response.split('\n').map((line, i) => (
-              `<p>${line}</p>`
+              <p key={i}>{line}</p>
             ))}
           </div>
 
