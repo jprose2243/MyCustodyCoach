@@ -7,7 +7,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Prompt is required.' }, { status: 400 });
   }
 
-  // Truncate fileContext to reduce token overload
+  if (!process.env.OPENAI_API_KEY) {
+    console.error('❌ Missing OPENAI_API_KEY in environment');
+    return NextResponse.json({ error: 'Missing API key' }, { status: 500 });
+  }
+
   const cleanContext = fileContext.slice(0, 3000);
   const contextSummary = cleanContext
     ? `Here is some background context from uploaded files. Use it only if relevant:\n\n${cleanContext}`
@@ -36,24 +40,23 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify(body),
     });
 
-    const text = await openaiRes.text();
-
-    console.log('🔍 Raw OpenAI Response:', text);
-
-    let json: any;
-    try {
-      json = JSON.parse(text);
-    } catch (parseError) {
-      console.error('❌ JSON parse failed:', parseError);
+    // ⛔️ API call failed at the network or auth level
+    if (!openaiRes.ok) {
+      const errorText = await openaiRes.text();
+      console.error('❌ OpenAI API Error:', errorText);
       return NextResponse.json(
-        { error: 'Failed to parse OpenAI response.' },
-        { status: 502 }
+        { error: 'Failed to fetch from OpenAI.', details: errorText },
+        { status: openaiRes.status || 502 }
       );
     }
 
-    const result = json?.choices?.[0]?.message?.content;
+    const json = await openaiRes.json();
+    console.log('🔍 Raw OpenAI Response:', JSON.stringify(json, null, 2));
+
+    const result = json.choices?.[0]?.message?.content;
 
     if (!result || result.length < 10) {
+      console.warn('⚠️ Empty or short AI response:', result);
       return NextResponse.json(
         { error: 'OpenAI returned an empty or invalid response.' },
         { status: 502 }
@@ -62,7 +65,10 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ result });
   } catch (error) {
-    console.error('AI route error:', error);
-    return NextResponse.json({ error: 'Server error while generating response.' }, { status: 500 });
+    console.error('💥 AI route exception:', error);
+    return NextResponse.json(
+      { error: 'Server error while generating response.' },
+      { status: 500 }
+    );
   }
 }
