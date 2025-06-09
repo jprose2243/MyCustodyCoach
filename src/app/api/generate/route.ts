@@ -37,16 +37,16 @@ export async function POST(req: NextRequest) {
 
     let json;
     try {
-      json = await openaiRes.json();
-    } catch (e) {
-      console.error('🛑 Failed to parse JSON from OpenAI:', e);
-      return NextResponse.json(
-        { error: 'Invalid response from OpenAI. Could not parse JSON.' },
-        { status: 502 }
-      );
-    }
+  json = await openaiRes.json();
+} catch (e) {
+  console.error('🛑 Failed to parse JSON from OpenAI:', e);
+  return NextResponse.json(
+    { error: 'Invalid response from OpenAI. Could not parse JSON.' },
+    { status: 502 }
+  );
+}
 
-    console.log('🔍 Raw OpenAI Response:', JSON.stringify(json, null, 2));
+console.log('🧪 Full OpenAI Response:', JSON.stringify(json, null, 2));
 
     const result = json.choices?.[0]?.message?.content;
 
