@@ -7,9 +7,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Prompt is required.' }, { status: 400 });
   }
 
-  // Truncate fileContext to reduce token overload
   const cleanContext = fileContext.slice(0, 3000);
-
   const contextSummary = cleanContext
     ? `Here is some background context from uploaded files. Use it only if relevant:\n\n${cleanContext}`
     : '';
@@ -39,19 +37,16 @@ export async function POST(req: NextRequest) {
 
     const json = await openaiRes.json();
 
-    // ✅ ADD THIS LINE for debugging
     console.log('OpenAI raw response:', JSON.stringify(json, null, 2));
 
-    const result = json.choices?.[0]?.message?.content;
-
-    if (!result || result.length < 10) {
+    if (!json || !json.choices || !json.choices[0] || !json.choices[0].message?.content) {
       return NextResponse.json(
         { error: 'OpenAI returned an empty or invalid response.' },
         { status: 502 }
       );
     }
 
-    return NextResponse.json({ result });
+    return NextResponse.json({ result: json.choices[0].message.content });
   } catch (error) {
     console.error('AI route error:', error);
     return NextResponse.json({ error: 'Server error while generating response.' }, { status: 500 });
