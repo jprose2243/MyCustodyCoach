@@ -7,6 +7,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Prompt is required.' }, { status: 400 });
   }
 
+  // Truncate fileContext to reduce token overload
   const cleanContext = fileContext.slice(0, 3000);
   const contextSummary = cleanContext
     ? `Here is some background context from uploaded files. Use it only if relevant:\n\n${cleanContext}`
@@ -35,18 +36,31 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify(body),
     });
 
-    const json = await openaiRes.json();
+    const text = await openaiRes.text();
 
-    console.log('OpenAI raw response:', JSON.stringify(json, null, 2));
+    console.log('🔍 Raw OpenAI Response:', text);
 
-    if (!json || !json.choices || !json.choices[0] || !json.choices[0].message?.content) {
+    let json: any;
+    try {
+      json = JSON.parse(text);
+    } catch (parseError) {
+      console.error('❌ JSON parse failed:', parseError);
+      return NextResponse.json(
+        { error: 'Failed to parse OpenAI response.' },
+        { status: 502 }
+      );
+    }
+
+    const result = json?.choices?.[0]?.message?.content;
+
+    if (!result || result.length < 10) {
       return NextResponse.json(
         { error: 'OpenAI returned an empty or invalid response.' },
         { status: 502 }
       );
     }
 
-    return NextResponse.json({ result: json.choices[0].message.content });
+    return NextResponse.json({ result });
   } catch (error) {
     console.error('AI route error:', error);
     return NextResponse.json({ error: 'Server error while generating response.' }, { status: 500 });
