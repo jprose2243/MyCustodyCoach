@@ -53,7 +53,7 @@ export default function Home() {
         throw new Error(json.error || "Failed to get response");
       }
 
-      setResponse(json.result); // ✅ Renders response to UI
+      setResponse(json.result);
     } catch (err: any) {
       console.error("⚠️ OpenAI error response:", err);
       setError(err.message || "Unknown error occurred.");
@@ -77,6 +77,8 @@ export default function Home() {
       <h1 className="text-3xl font-bold mb-6">MyCustodyCoach</h1>
 
       <textarea
+        id="prompt"
+        name="prompt"
         rows={5}
         placeholder="Paste your court question here..."
         className="w-full max-w-2xl bg-zinc-900 text-white p-4 rounded border border-zinc-700 mb-4"
@@ -85,6 +87,8 @@ export default function Home() {
       />
 
       <select
+        id="tone"
+        name="tone"
         className="w-full max-w-2xl bg-zinc-900 text-white p-2 rounded border border-zinc-700 mb-4"
         value={tone}
         onChange={(e) => setTone(e.target.value)}
@@ -96,6 +100,8 @@ export default function Home() {
       </select>
 
       <input
+        id="file"
+        name="file"
         type="file"
         accept=".txt"
         onChange={handleFileChange}
@@ -103,12 +109,12 @@ export default function Home() {
       />
 
       {fileName && (
-        <p className="mb-2 text-sm text-zinc-400">
-          File loaded: {fileName}
-        </p>
+        <p className="mb-2 text-sm text-zinc-400">File loaded: {fileName}</p>
       )}
 
       <button
+        id="submit"
+        name="submit"
         className="bg-blue-600 hover:bg-blue-700 text-white mt-4 py-2 px-6 rounded disabled:opacity-50"
         onClick={handleSubmit}
         disabled={loading}
@@ -122,11 +128,9 @@ export default function Home() {
         <>
           <div
             ref={pdfRef}
-            className="bg-white text-black mt-10 p-8 w-full max-w-2xl"
+            className="bg-white text-black mt-10 p-8 w-full max-w-2xl whitespace-pre-line"
           >
-            <h2 className="text-2xl font-bold mb-4">
-              MyCustodyCoach Response
-            </h2>
+            <h2 className="text-2xl font-bold mb-4">MyCustodyCoach Response</h2>
             <p>
               <strong>Date:</strong> {new Date().toLocaleDateString()}
             </p>
