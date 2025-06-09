@@ -26,6 +26,9 @@ export async function POST(req: NextRequest) {
   };
 
   try {
+    // ✅ DEBUG: Confirm OpenAI key is loaded
+    console.log('🔍 OPENAI Key Present?', !!process.env.OPENAI_API_KEY);
+
     const openaiRes = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -37,16 +40,16 @@ export async function POST(req: NextRequest) {
 
     let json;
     try {
-  json = await openaiRes.json();
-} catch (e) {
-  console.error('🛑 Failed to parse JSON from OpenAI:', e);
-  return NextResponse.json(
-    { error: 'Invalid response from OpenAI. Could not parse JSON.' },
-    { status: 502 }
-  );
-}
+      json = await openaiRes.json();
+    } catch (e) {
+      console.error('🛑 Failed to parse JSON from OpenAI:', e);
+      return NextResponse.json(
+        { error: 'Invalid response from OpenAI. Could not parse JSON.' },
+        { status: 502 }
+      );
+    }
 
-console.log('🧪 Full OpenAI Response:', JSON.stringify(json, null, 2));
+    console.log('🧪 Full OpenAI Response:', JSON.stringify(json, null, 2));
 
     const result = json.choices?.[0]?.message?.content;
 
