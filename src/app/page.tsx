@@ -1,65 +1,50 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import React, { useState } from 'react';
 
 export default function Home() {
   const [prompt, setPrompt] = useState('');
   const [tone, setTone] = useState('calm');
+  const [fileContext, setFileContext] = useState('');
   const [response, setResponse] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [fileContext, setFileContext] = useState('');
-  const pdfRef = useRef<HTMLDivElement>(null);
 
   const handleSubmit = async () => {
+    setLoading(true);
     setError('');
     setResponse('');
-    setLoading(true);
 
     try {
       const res = await fetch('/api/generate', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt, tone, fileContext }),
       });
 
-      const data = await res.json();
+      const text = await res.text();
 
-      console.log('📥 AI Result Data:', data); // ✅ PATCHED LINE
+      try {
+        const data = JSON.parse(text);
 
-      if (!res.ok || !data.result) {
-        throw new Error(data.error || 'Unexpected error.');
+        if (res.ok && data.result) {
+          console.log('✅ AI Result:', data.result);
+          setResponse(data.result);
+        } else {
+          console.error('⚠️ OpenAI error response:', data.error || 'Unknown error');
+          setError(data.error || 'OpenAI returned an empty or invalid response.');
+        }
+      } catch (jsonError) {
+        console.error('❌ JSON parse error:', jsonError);
+        console.error('❌ Raw response text:', text);
+        setError('Invalid JSON response from server.');
       }
-
-      setResponse(data.result);
-    } catch (err: any) {
-      console.error('UI error:', err);
-      setError(err.message || 'Failed to get response.');
+    } catch (err) {
+      console.error('❌ Request failed:', err);
+      setError('Request failed. Please try again.');
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const text = await file.text();
-    setFileContext(text.slice(0, 3000));
-  };
-
-  const handleDownloadPDF = async () => {
-    if (typeof window === 'undefined' || !window.html2pdf) {
-      alert('PDF library not available.');
-      return;
-    }
-
-    const element = document.querySelector('[data-download-content]');
-    if (!element) return;
-
-    window.html2pdf().from(element).save('MyCustodyCoach_Response.pdf');
   };
 
   return (
@@ -75,26 +60,20 @@ export default function Home() {
       />
 
       <select
-        className="w-full max-w-2xl bg-zinc-900 text-white p-2 rounded border border-zinc-700 mb-4"
         value={tone}
         onChange={(e) => setTone(e.target.value)}
+        className="w-full max-w-2xl bg-zinc-900 text-white p-2 rounded border border-zinc-700 mb-4"
       >
         <option value="calm">Calm</option>
-        <option value="firm">Firm</option>
-        <option value="supportive">Supportive</option>
+        <option value="professional">Professional</option>
+        <option value="friendly">Friendly</option>
+        <option value="direct">Direct</option>
       </select>
-
-      <input
-        type="file"
-        accept=".txt,.md"
-        className="mb-4"
-        onChange={handleFileUpload}
-      />
 
       <button
         onClick={handleSubmit}
-        className="bg-blue-600 hover:bg-blue-700 text-white mt-4 py-2 px-6 rounded disabled:opacity-50"
         disabled={loading}
+        className="bg-blue-600 hover:bg-blue-700 text-white mt-4 py-2 px-6 rounded"
       >
         {loading ? 'Generating...' : 'Generate Response'}
       </button>
@@ -102,30 +81,17 @@ export default function Home() {
       {error && <p className="text-red-400 mt-4">{error}</p>}
 
       {response && (
-        <div
-          data-download-content
-          className="bg-white text-black mt-8 p-6 w-full max-w-2xl rounded shadow-md"
-          ref={pdfRef}
-        >
+        <div className="bg-white text-black p-6 mt-6 max-w-2xl w-full rounded shadow-md">
           <h2 className="text-2xl font-bold mb-4">MyCustodyCoach Response</h2>
-          <p><strong>Date:</strong> {new Date().toLocaleDateString()}</p>
-          <p><strong>Tone:</strong> {tone}</p>
-          <p><strong>Question:</strong> {prompt}</p>
+          <p className="mb-1"><strong>Date:</strong> {new Date().toLocaleDateString()}</p>
+          <p className="mb-1"><strong>Tone:</strong> {tone}</p>
+          <p className="mb-4"><strong>Question:</strong> {prompt}</p>
           <hr className="my-2" />
-          <p><strong>Response:</strong></p>
+          <p className="font-bold mt-2">Response:</p>
           {response.split('\n').map((line, i) => (
             <p key={i}>{line}</p>
           ))}
         </div>
-      )}
-
-      {response && (
-        <button
-          onClick={handleDownloadPDF}
-          className="bg-green-600 hover:bg-green-700 text-white mt-6 py-2 px-6 rounded"
-        >
-          Download PDF
-        </button>
       )}
     </main>
   );
