@@ -1,49 +1,53 @@
 'use client';
+
 import { useState, useRef } from 'react';
 
 export default function Home() {
   const [prompt, setPrompt] = useState('');
-  const [tone, setTone] = useState('Calm');
+  const [tone, setTone] = useState('calm');
   const [response, setResponse] = useState('');
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const [fileText, setFileText] = useState('');
-  const pdfRef = useRef<HTMLDivElement | null>(null);
-
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const ext = file.name.split('.').pop()?.toLowerCase();
-    const text = await file.text();
-    setFileText(text);
-  };
+  const [loading, setLoading] = useState(false);
+  const [fileContext, setFileContext] = useState('');
+  const pdfRef = useRef<HTMLDivElement>(null);
 
   const handleSubmit = async () => {
-    setLoading(true);
     setError('');
     setResponse('');
+    setLoading(true);
 
     try {
       const res = await fetch('/api/generate', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, tone, fileContext: fileText }),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ prompt, tone, fileContext }),
       });
 
-      const json = await res.json();
+      const data = await res.json();
 
-      if (!res.ok) {
-        throw new Error(json.error || 'Unknown error from API');
+      console.log('📥 AI Result Data:', data); // ✅ PATCHED LINE
+
+      if (!res.ok || !data.result) {
+        throw new Error(data.error || 'Unexpected error.');
       }
 
-      setResponse(json.result);
+      setResponse(data.result);
     } catch (err: any) {
-      setError(err.message);
+      console.error('UI error:', err);
+      setError(err.message || 'Failed to get response.');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const text = await file.text();
+    setFileContext(text.slice(0, 3000));
   };
 
   const handleDownloadPDF = async () => {
@@ -53,22 +57,9 @@ export default function Home() {
     }
 
     const element = document.querySelector('[data-download-content]');
-    if (!element) {
-      alert('PDF content not found.');
-      return;
-    }
+    if (!element) return;
 
-    window.html2pdf()
-      .set({
-        margin: 0.5,
-        filename: 'MyCustodyCoach_Response.pdf',
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2 },
-        jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' },
-        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },
-      })
-      .from(element)
-      .save();
+    window.html2pdf().from(element).save('MyCustodyCoach_Response.pdf');
   };
 
   return (
@@ -77,8 +68,8 @@ export default function Home() {
 
       <textarea
         rows={5}
-        className="w-full max-w-2xl bg-zinc-900 text-white p-4 rounded border border-zinc-700 mb-4"
         placeholder="Paste your court question here..."
+        className="w-full max-w-2xl bg-zinc-900 text-white p-4 rounded border border-zinc-700 mb-4"
         value={prompt}
         onChange={(e) => setPrompt(e.target.value)}
       />
@@ -88,21 +79,21 @@ export default function Home() {
         value={tone}
         onChange={(e) => setTone(e.target.value)}
       >
-        <option value="Calm">Calm</option>
-        <option value="Assertive">Assertive</option>
-        <option value="Professional">Professional</option>
+        <option value="calm">Calm</option>
+        <option value="firm">Firm</option>
+        <option value="supportive">Supportive</option>
       </select>
 
       <input
         type="file"
-        ref={fileInputRef}
-        onChange={handleFileChange}
-        className="mb-4 text-sm"
+        accept=".txt,.md"
+        className="mb-4"
+        onChange={handleFileUpload}
       />
 
       <button
-        className="bg-blue-600 hover:bg-blue-700 text-white mt-4 py-2 px-6 rounded"
         onClick={handleSubmit}
+        className="bg-blue-600 hover:bg-blue-700 text-white mt-4 py-2 px-6 rounded disabled:opacity-50"
         disabled={loading}
       >
         {loading ? 'Generating...' : 'Generate Response'}
@@ -111,30 +102,30 @@ export default function Home() {
       {error && <p className="text-red-400 mt-4">{error}</p>}
 
       {response && (
-        <>
-          <div
-            ref={pdfRef}
-            data-download-content
-            className="bg-white text-black mt-8 p-6 w-full max-w-2xl rounded"
-          >
-            <h2 className="text-2xl font-bold mb-4">MyCustodyCoach Response</h2>
-            <p><strong>Date:</strong> {new Date().toLocaleDateString()}</p>
-            <p><strong>Tone:</strong> {tone}</p>
-            <p><strong>Question:</strong> {prompt}</p>
-            <hr className="my-2" />
-            <p><strong>Response:</strong></p>
-            {response.split('\n').map((line, i) => (
-              <p key={i}>{line}</p>
-            ))}
-          </div>
+        <div
+          data-download-content
+          className="bg-white text-black mt-8 p-6 w-full max-w-2xl rounded shadow-md"
+          ref={pdfRef}
+        >
+          <h2 className="text-2xl font-bold mb-4">MyCustodyCoach Response</h2>
+          <p><strong>Date:</strong> {new Date().toLocaleDateString()}</p>
+          <p><strong>Tone:</strong> {tone}</p>
+          <p><strong>Question:</strong> {prompt}</p>
+          <hr className="my-2" />
+          <p><strong>Response:</strong></p>
+          {response.split('\n').map((line, i) => (
+            <p key={i}>{line}</p>
+          ))}
+        </div>
+      )}
 
-          <button
-            onClick={handleDownloadPDF}
-            className="bg-green-600 hover:bg-green-700 text-white mt-6 py-2 px-6 rounded"
-          >
-            Download PDF
-          </button>
-        </>
+      {response && (
+        <button
+          onClick={handleDownloadPDF}
+          className="bg-green-600 hover:bg-green-700 text-white mt-6 py-2 px-6 rounded"
+        >
+          Download PDF
+        </button>
       )}
     </main>
   );
