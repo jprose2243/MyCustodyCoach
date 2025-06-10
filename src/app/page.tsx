@@ -62,7 +62,7 @@ export default function Home() {
     const html2pdf = (await import("html2pdf.js")).default;
 
     const opt = {
-      margin: [0, 0, 0, 0],
+      margin: [0.5, 0.5, 0.5, 0.5],
       filename: "MyCustodyCoach_Response.pdf",
       image: { type: "jpeg", quality: 0.98 },
       html2canvas: { scale: 2 },
