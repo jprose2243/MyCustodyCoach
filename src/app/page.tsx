@@ -73,6 +73,7 @@ export default function Home() {
       image: { type: "jpeg", quality: 0.98 },
       html2canvas: { scale: 2 },
       jsPDF: { unit: "in", format: "letter", orientation: "portrait" },
+      pagebreak: { mode: ["avoid-all", "css", "legacy"] }
     };
 
     html2pdf().set(opt).from(pdfRef.current).save();
@@ -132,27 +133,19 @@ export default function Home() {
         <>
           <div
             ref={pdfRef}
-            className="bg-white text-black mt-10 p-8 w-full max-w-2xl rounded shadow"
+            className="bg-white text-black mt-10 p-8 w-full max-w-2xl rounded shadow leading-relaxed space-y-4"
           >
-            <h2 className="text-2xl font-bold mb-4">
-              MyCustodyCoach Response
-            </h2>
-            <p>
-              <strong>Date:</strong> {new Date().toLocaleDateString()}
-            </p>
-            <p>
-              <strong>Tone:</strong> {tone}
-            </p>
-            <p>
-              <strong>Question:</strong> {prompt}
-            </p>
-            <hr className="my-4" />
-            <p>
-              <strong>Response:</strong>
-            </p>
-            {response.split("\n").map((line, i) => (
-              <p key={i}>{line}</p>
-            ))}
+            <h2 className="text-2xl font-bold">MyCustodyCoach Response</h2>
+            <p><strong>Date:</strong> {new Date().toLocaleDateString()}</p>
+            <p><strong>Tone:</strong> {tone}</p>
+            <p><strong>Question:</strong> {prompt}</p>
+            <hr className="my-4 border-gray-400" />
+            <div>
+              <p className="font-semibold mb-2">Response:</p>
+              {response.split("\n").map((line, i) => (
+                <p key={i} className="text-base">{line}</p>
+              ))}
+            </div>
           </div>
 
           <button
