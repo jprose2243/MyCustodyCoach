@@ -19,7 +19,7 @@ export default function Home() {
     setFileName(file.name);
 
     const reader = new FileReader();
-    reader.onload = async (event) => {
+    reader.onload = (event) => {
       const text = event.target?.result;
       if (typeof text === "string") {
         setFileText(text);
@@ -40,15 +40,9 @@ export default function Home() {
         body: JSON.stringify({ prompt, tone, fileContext: fileText }),
       });
 
-      let json;
-      try {
-        json = await res.json();
-      } catch (e) {
-        throw new Error("Invalid JSON received from API");
-      }
-
+      const json = await res.json();
       if (!res.ok || !json.result) {
-        throw new Error(json.error || "Failed to get response");
+        throw new Error(json.error || "Failed to generate response");
       }
 
       setResponse(json.result);
@@ -65,32 +59,30 @@ export default function Home() {
       alert("PDF export not available.");
       return;
     }
+
     window.html2pdf()
-      .set({
-        margin: 0.5,
-        filename: "MyCustodyCoach_Response.pdf",
-        image: { type: "jpeg", quality: 0.98 },
-        html2canvas: { scale: 2 },
-        jsPDF: { unit: "in", format: "letter", orientation: "portrait" }
-      })
+      .set({ margin: 0.5, filename: "MyCustodyCoach_Response.pdf" })
       .from(pdfRef.current)
       .save();
   };
 
   return (
-    <main className="min-h-screen bg-black text-white p-4 flex flex-col items-center">
+    <main className="min-h-screen bg-black text-white p-6 flex flex-col items-center">
       <h1 className="text-3xl font-bold mb-6">MyCustodyCoach</h1>
 
+      <label htmlFor="prompt" className="sr-only">Court Question</label>
       <textarea
         id="prompt"
         name="prompt"
         rows={5}
+        autoComplete="off"
         placeholder="Paste your court question here..."
         className="w-full max-w-2xl bg-zinc-900 text-white p-4 rounded border border-zinc-700 mb-4"
         value={prompt}
         onChange={(e) => setPrompt(e.target.value)}
       />
 
+      <label htmlFor="tone" className="sr-only">Tone</label>
       <select
         id="tone"
         name="tone"
@@ -104,32 +96,24 @@ export default function Home() {
         <option value="empathetic">Empathetic</option>
       </select>
 
-      <label htmlFor="file-upload" className="mb-4 w-full max-w-2xl">
-        <select
-          id="file-upload"
-          name="file-upload"
-          className="w-full bg-zinc-900 text-white p-2 rounded border border-zinc-700"
-          onChange={handleFileChange}
-        >
-          <option>Choose File</option>
-        </select>
-        <input
-          type="file"
-          id="file-upload"
-          accept=".txt"
-          onChange={handleFileChange}
-          className="hidden"
-        />
-      </label>
+      <label htmlFor="file-upload" className="sr-only">Upload File</label>
+      <input
+        id="file-upload"
+        name="file-upload"
+        type="file"
+        accept=".txt"
+        onChange={handleFileChange}
+        className="w-full max-w-2xl bg-zinc-900 text-white p-2 rounded border border-zinc-700 mb-4"
+      />
 
       {fileName && (
-        <p className="mb-2 text-sm text-zinc-400">File loaded: {fileName}</p>
+        <p className="mb-2 text-sm text-zinc-400 text-center">File loaded: {fileName}</p>
       )}
 
       <button
-        className="bg-blue-600 hover:bg-blue-700 text-white mt-4 py-2 px-6 rounded disabled:opacity-50"
         onClick={handleSubmit}
         disabled={loading}
+        className="bg-blue-600 hover:bg-blue-700 text-white mt-4 py-2 px-6 rounded disabled:opacity-50"
       >
         {loading ? "Generating..." : "Generate Response"}
       </button>
@@ -140,7 +124,7 @@ export default function Home() {
         <>
           <div
             ref={pdfRef}
-            className="bg-white text-black px-10 py-8 w-full max-w-2xl rounded shadow-xl leading-relaxed"
+            className="bg-white text-black mt-10 p-8 w-full max-w-2xl rounded shadow-lg"
           >
             <h2 className="text-2xl font-bold mb-4">MyCustodyCoach Response</h2>
             <p><strong>Date:</strong> {new Date().toLocaleDateString()}</p>
@@ -149,7 +133,7 @@ export default function Home() {
             <hr className="my-4" />
             <p><strong>Response:</strong></p>
             {response.split("\n").map((line, i) => (
-              <p key={i} className="mb-2">{line}</p>
+              <p key={i}>{line}</p>
             ))}
           </div>
 
