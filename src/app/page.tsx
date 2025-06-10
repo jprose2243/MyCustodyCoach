@@ -13,7 +13,9 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const pdfRef = useRef(null);
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setFileName(file.name);
@@ -65,12 +67,22 @@ export default function Home() {
       alert("PDF export not available.");
       return;
     }
-    window.html2pdf().from(pdfRef.current).save("MyCustodyCoach_Response.pdf");
+    window.html2pdf()
+      .set({
+        margin: 0.5,
+        filename: "MyCustodyCoach_Response.pdf",
+        image: { type: "jpeg", quality: 0.98 },
+        html2canvas: { scale: 2, logging: false },
+        jsPDF: { unit: "in", format: "letter", orientation: "portrait" },
+        pagebreak: { mode: ["css", "legacy"] },
+      })
+      .from(pdfRef.current)
+      .save();
   };
 
   return (
-    <main className="min-h-screen bg-black text-white p-4 flex flex-col items-center">
-      <h1 className="text-3xl font-bold mb-6">MyCustodyCoach</h1>
+    <main className="min-h-screen bg-black text-white p-6 flex flex-col items-center">
+      <h1 className="text-4xl font-bold mb-8">MyCustodyCoach</h1>
 
       <textarea
         id="prompt"
@@ -95,18 +107,24 @@ export default function Home() {
         <option value="empathetic">Empathetic</option>
       </select>
 
-      <input
-        type="file"
-        accept=".txt"
-        onChange={handleFileChange}
-        className="mb-4"
-      />
-
-      {fileName && (
-        <p className="mb-2 text-sm text-zinc-400">
-          File loaded: {fileName}
-        </p>
-      )}
+      <div className="relative w-full max-w-2xl mb-4">
+        <label
+          htmlFor="file-upload"
+          className="bg-zinc-700 text-white px-4 py-2 rounded cursor-pointer inline-block hover:bg-zinc-600"
+        >
+          Choose File
+        </label>
+        <input
+          id="file-upload"
+          type="file"
+          accept=".txt"
+          onChange={handleFileChange}
+          className="hidden"
+        />
+        {fileName && (
+          <span className="ml-4 text-sm text-zinc-400">{fileName}</span>
+        )}
+      </div>
 
       <button
         className="bg-blue-600 hover:bg-blue-700 text-white mt-4 py-2 px-6 rounded disabled:opacity-50"
@@ -122,11 +140,9 @@ export default function Home() {
         <>
           <div
             ref={pdfRef}
-            className="bg-white text-black mt-10 p-8 w-full max-w-2xl"
+            className="bg-white text-black mt-10 p-10 w-full max-w-2xl text-base leading-relaxed"
           >
-            <h2 className="text-2xl font-bold mb-4">
-              MyCustodyCoach Response
-            </h2>
+            <h2 className="text-2xl font-bold mb-4">MyCustodyCoach Response</h2>
             <p>
               <strong>Date:</strong> {new Date().toLocaleDateString()}
             </p>
