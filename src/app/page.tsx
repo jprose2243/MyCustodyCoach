@@ -18,7 +18,7 @@ export default function Home() {
     setFileName(file.name);
 
     const reader = new FileReader();
-    reader.onload = async (event) => {
+    reader.onload = (event) => {
       const text = event.target?.result;
       if (typeof text === "string") {
         setFileText(text);
@@ -39,20 +39,14 @@ export default function Home() {
         body: JSON.stringify({ prompt, tone, fileContext: fileText }),
       });
 
-      let json;
-      try {
-        json = await res.json();
-      } catch (e) {
-        throw new Error("Invalid JSON received from API");
-      }
-
+      const json = await res.json();
       if (!res.ok || !json.result) {
-        throw new Error(json.error || "Failed to get response");
+        throw new Error(json.error || "Invalid OpenAI response.");
       }
 
       setResponse(json.result);
     } catch (err: any) {
-      console.error("⚠️ OpenAI error response:", err);
+      console.error("⚠️ OpenAI error:", err);
       setError(err.message || "Unknown error occurred.");
     } finally {
       setLoading(false);
@@ -84,8 +78,6 @@ export default function Home() {
       <h1 className="text-3xl font-bold mb-6">MyCustodyCoach</h1>
 
       <textarea
-        id="prompt"
-        name="prompt"
         rows={5}
         placeholder="Paste your court question here..."
         className="w-full max-w-2xl bg-zinc-900 text-white p-4 rounded border border-zinc-700 mb-4"
@@ -94,8 +86,6 @@ export default function Home() {
       />
 
       <select
-        id="tone"
-        name="tone"
         className="w-full max-w-2xl bg-zinc-900 text-white p-2 rounded border border-zinc-700 mb-4"
         value={tone}
         onChange={(e) => setTone(e.target.value)}
@@ -107,17 +97,13 @@ export default function Home() {
       </select>
 
       <input
-        id="file-upload"
-        name="file-upload"
         type="file"
         accept=".txt"
         onChange={handleFileChange}
         className="mb-4"
       />
 
-      {fileName && (
-        <p className="mb-2 text-sm text-zinc-400">File loaded: {fileName}</p>
-      )}
+      {fileName && <p className="mb-2 text-sm text-zinc-400">File loaded: {fileName}</p>}
 
       <button
         className="bg-blue-600 hover:bg-blue-700 text-white mt-4 py-2 px-6 rounded disabled:opacity-50"
@@ -139,13 +125,11 @@ export default function Home() {
             <p><strong>Date:</strong> {new Date().toLocaleDateString()}</p>
             <p><strong>Tone:</strong> {tone}</p>
             <p><strong>Question:</strong> {prompt}</p>
-            <hr className="my-4 border-gray-400" />
-            <div>
-              <p className="font-semibold mb-2">Response:</p>
-              {response.split("\n").map((line, i) => (
-                <p key={i} className="text-base">{line}</p>
-              ))}
-            </div>
+            <hr />
+            <p><strong>Response:</strong></p>
+            {response.split("\n").map((line, i) => (
+              <p key={i}>{line}</p>
+            ))}
           </div>
 
           <button
