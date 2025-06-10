@@ -11,15 +11,17 @@ export default function Home() {
   const [response, setResponse] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const pdfRef = useRef(null);
+  const pdfRef = useRef<HTMLDivElement | null>(null);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (
+    e: React.ChangeEvent<HTMLSelectElement>
+  ) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setFileName(file.name);
 
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       const text = event.target?.result;
       if (typeof text === "string") {
         setFileText(text);
@@ -37,15 +39,10 @@ export default function Home() {
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt, tone, fileContext: fileText }),
+        body: JSON.stringify({ prompt, tone, fileContext: fileText })
       });
 
-      let json;
-      try {
-        json = await res.json();
-      } catch (e) {
-        throw new Error("Invalid JSON received from API");
-      }
+      const json = await res.json();
 
       if (!res.ok || !json.result) {
         throw new Error(json.error || "Failed to get response");
@@ -66,32 +63,26 @@ export default function Home() {
       return;
     }
 
-    window.html2pdf()
+    html2pdf()
       .set({
-        margin: [0.0, 0.0, 0.0, 0.0],
+        margin: [0, 0, 0, 0],
         filename: "MyCustodyCoach_Response.pdf",
         image: { type: "jpeg", quality: 0.98 },
         html2canvas: {
           scale: 2,
           useCORS: true,
+          logging: true
         },
-        jsPDF: {
-          unit: "in",
-          format: "letter",
-          orientation: "portrait",
-        },
+        jsPDF: { unit: "in", format: "letter", orientation: "portrait" }
       })
       .from(pdfRef.current)
       .save();
   };
 
   return (
-    <main className="bg-black text-white flex flex-col items-center min-h-screen py-10">
+    <main className="min-h-screen bg-black text-white p-4 flex flex-col items-center">
       <h1 className="text-3xl font-bold mb-6">MyCustodyCoach</h1>
 
-      <label htmlFor="prompt" className="sr-only">
-        Court question
-      </label>
       <textarea
         id="prompt"
         name="prompt"
@@ -102,9 +93,6 @@ export default function Home() {
         onChange={(e) => setPrompt(e.target.value)}
       />
 
-      <label htmlFor="tone" className="sr-only">
-        Tone
-      </label>
       <select
         id="tone"
         name="tone"
@@ -118,9 +106,6 @@ export default function Home() {
         <option value="empathetic">Empathetic</option>
       </select>
 
-      <label htmlFor="file-upload" className="sr-only">
-        Upload file
-      </label>
       <input
         id="file-upload"
         name="file-upload"
@@ -148,22 +133,14 @@ export default function Home() {
         <>
           <div
             ref={pdfRef}
-            className="bg-white text-black text-base leading-relaxed w-[8.5in] min-h-[11in] p-[1in] mt-10"
+            className="bg-white text-black mt-10 p-8 w-full max-w-2xl rounded shadow"
           >
             <h2 className="text-2xl font-bold mb-4">MyCustodyCoach Response</h2>
-            <p>
-              <strong>Date:</strong> {new Date().toLocaleDateString()}
-            </p>
-            <p>
-              <strong>Tone:</strong> {tone}
-            </p>
-            <p>
-              <strong>Question:</strong> {prompt}
-            </p>
+            <p><strong>Date:</strong> {new Date().toLocaleDateString()}</p>
+            <p><strong>Tone:</strong> {tone}</p>
+            <p><strong>Question:</strong> {prompt}</p>
             <hr className="my-4" />
-            <p>
-              <strong>Response:</strong>
-            </p>
+            <p><strong>Response:</strong></p>
             {response.split("\n").map((line, i) => (
               <p key={i}>{line}</p>
             ))}
