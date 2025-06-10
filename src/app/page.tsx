@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useRef, useState } from "react";
 import html2pdf from "html2pdf.js";
 
 export default function Home() {
@@ -11,17 +11,15 @@ export default function Home() {
   const [response, setResponse] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const pdfRef = useRef<HTMLDivElement | null>(null);
+  const pdfRef = useRef<HTMLDivElement>(null);
 
-  const handleFileChange = async (
-    e: React.ChangeEvent<HTMLSelectElement>
-  ) => {
-    const file = e.target.files?.[0];
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = (e.target as HTMLInputElement).files?.[0];
     if (!file) return;
     setFileName(file.name);
 
     const reader = new FileReader();
-    reader.onload = async (event) => {
+    reader.onload = (event) => {
       const text = event.target?.result;
       if (typeof text === "string") {
         setFileText(text);
@@ -39,7 +37,7 @@ export default function Home() {
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt, tone, fileContext: fileText })
+        body: JSON.stringify({ prompt, tone, fileContext: fileText }),
       });
 
       const json = await res.json();
@@ -50,7 +48,7 @@ export default function Home() {
 
       setResponse(json.result);
     } catch (err: any) {
-      console.error("⚠️ OpenAI error response:", err);
+      console.error("⚠️ OpenAI error:", err);
       setError(err.message || "Unknown error occurred.");
     } finally {
       setLoading(false);
@@ -63,84 +61,98 @@ export default function Home() {
       return;
     }
 
-    html2pdf()
-      .set({
-        margin: [0, 0, 0, 0],
-        filename: "MyCustodyCoach_Response.pdf",
-        image: { type: "jpeg", quality: 0.98 },
-        html2canvas: {
-          scale: 2,
-          useCORS: true,
-          logging: true
-        },
-        jsPDF: { unit: "in", format: "letter", orientation: "portrait" }
-      })
-      .from(pdfRef.current)
-      .save();
+    const opt = {
+      margin: [0.0, 0.0, 0.0, 0.0],
+      filename: "MyCustodyCoach_Response.pdf",
+      image: { type: "jpeg", quality: 0.98 },
+      html2canvas: { scale: 2 },
+      jsPDF: { unit: "in", format: "letter", orientation: "portrait" },
+    };
+
+    html2pdf().set(opt).from(pdfRef.current).save();
   };
 
   return (
-    <main className="min-h-screen bg-black text-white p-4 flex flex-col items-center">
-      <h1 className="text-3xl font-bold mb-6">MyCustodyCoach</h1>
+    <main className="min-h-screen bg-black text-white p-6 flex flex-col items-center">
+      <h1 className="text-4xl font-bold mb-8">MyCustodyCoach</h1>
 
-      <textarea
-        id="prompt"
-        name="prompt"
-        rows={5}
-        placeholder="Paste your court question here..."
-        className="w-full max-w-2xl bg-zinc-900 text-white p-4 rounded border border-zinc-700 mb-4"
-        value={prompt}
-        onChange={(e) => setPrompt(e.target.value)}
-      />
+      <form className="w-full max-w-2xl flex flex-col gap-4">
+        <label htmlFor="prompt" className="text-sm text-gray-400">
+          Your Court Question
+        </label>
+        <textarea
+          id="prompt"
+          name="prompt"
+          rows={5}
+          placeholder="Paste your court question here..."
+          className="bg-zinc-900 text-white p-4 rounded border border-zinc-700"
+          value={prompt}
+          onChange={(e) => setPrompt(e.target.value)}
+        />
 
-      <select
-        id="tone"
-        name="tone"
-        className="w-full max-w-2xl bg-zinc-900 text-white p-2 rounded border border-zinc-700 mb-4"
-        value={tone}
-        onChange={(e) => setTone(e.target.value)}
-      >
-        <option value="calm">Calm</option>
-        <option value="firm">Firm</option>
-        <option value="cooperative">Cooperative</option>
-        <option value="empathetic">Empathetic</option>
-      </select>
+        <label htmlFor="tone" className="text-sm text-gray-400">
+          Desired Tone
+        </label>
+        <select
+          id="tone"
+          name="tone"
+          className="bg-zinc-900 text-white p-2 rounded border border-zinc-700"
+          value={tone}
+          onChange={(e) => setTone(e.target.value)}
+        >
+          <option value="calm">Calm</option>
+          <option value="firm">Firm</option>
+          <option value="cooperative">Cooperative</option>
+          <option value="empathetic">Empathetic</option>
+        </select>
 
-      <input
-        id="file-upload"
-        name="file-upload"
-        type="file"
-        accept=".txt"
-        onChange={handleFileChange}
-        className="mb-4"
-      />
+        <label htmlFor="file-upload" className="text-sm text-gray-400">
+          Upload Optional Background File
+        </label>
+        <input
+          id="file-upload"
+          name="file-upload"
+          type="file"
+          accept=".txt"
+          onChange={handleFileChange}
+          className="bg-zinc-900 text-white p-2 rounded border border-zinc-700"
+        />
+        {fileName && (
+          <p className="text-sm text-gray-400 mt-1">File loaded: {fileName}</p>
+        )}
 
-      {fileName && (
-        <p className="mb-2 text-sm text-zinc-400">File loaded: {fileName}</p>
-      )}
+        <button
+          type="button"
+          className="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded disabled:opacity-50"
+          onClick={handleSubmit}
+          disabled={loading}
+        >
+          {loading ? "Generating..." : "Generate Response"}
+        </button>
 
-      <button
-        className="bg-blue-600 hover:bg-blue-700 text-white mt-4 py-2 px-6 rounded disabled:opacity-50"
-        onClick={handleSubmit}
-        disabled={loading}
-      >
-        {loading ? "Generating..." : "Generate Response"}
-      </button>
-
-      {error && <p className="text-red-400 mt-4">{error}</p>}
+        {error && <p className="text-red-400">{error}</p>}
+      </form>
 
       {response && (
-        <>
+        <section className="mt-10 w-full max-w-2xl flex flex-col items-center gap-6">
           <div
             ref={pdfRef}
-            className="bg-white text-black mt-10 p-8 w-full max-w-2xl rounded shadow"
+            className="bg-white text-black p-8 w-full border shadow-md"
           >
-            <h2 className="text-2xl font-bold mb-4">MyCustodyCoach Response</h2>
-            <p><strong>Date:</strong> {new Date().toLocaleDateString()}</p>
-            <p><strong>Tone:</strong> {tone}</p>
-            <p><strong>Question:</strong> {prompt}</p>
+            <h2 className="text-2xl font-bold mb-4">
+              MyCustodyCoach Response
+            </h2>
+            <p>
+              <strong>Date:</strong> {new Date().toLocaleDateString()}
+            </p>
+            <p>
+              <strong>Tone:</strong> {tone}
+            </p>
+            <p>
+              <strong>Question:</strong> {prompt}
+            </p>
             <hr className="my-4" />
-            <p><strong>Response:</strong></p>
+            <p className="font-semibold">Response:</p>
             {response.split("\n").map((line, i) => (
               <p key={i}>{line}</p>
             ))}
@@ -148,11 +160,11 @@ export default function Home() {
 
           <button
             onClick={handleDownloadPDF}
-            className="bg-green-600 hover:bg-green-700 text-white mt-6 py-2 px-6 rounded"
+            className="bg-green-600 hover:bg-green-700 text-white py-2 px-6 rounded"
           >
             Download PDF
           </button>
-        </>
+        </section>
       )}
     </main>
   );
