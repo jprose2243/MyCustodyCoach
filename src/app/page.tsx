@@ -13,9 +13,7 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const pdfRef = useRef(null);
 
-  const handleFileChange = async (
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setFileName(file.name);
@@ -67,9 +65,7 @@ export default function Home() {
       alert("PDF export not available.");
       return;
     }
-    window.html2pdf()
-      .from(pdfRef.current)
-      .save("MyCustodyCoach_Response.pdf");
+    window.html2pdf().from(pdfRef.current).save("MyCustodyCoach_Response.pdf");
   };
 
   return (
@@ -100,8 +96,6 @@ export default function Home() {
       </select>
 
       <input
-        id="file"
-        name="file"
         type="file"
         accept=".txt"
         onChange={handleFileChange}
@@ -109,12 +103,12 @@ export default function Home() {
       />
 
       {fileName && (
-        <p className="mb-2 text-sm text-zinc-400">File loaded: {fileName}</p>
+        <p className="mb-2 text-sm text-zinc-400">
+          File loaded: {fileName}
+        </p>
       )}
 
       <button
-        id="submit"
-        name="submit"
         className="bg-blue-600 hover:bg-blue-700 text-white mt-4 py-2 px-6 rounded disabled:opacity-50"
         onClick={handleSubmit}
         disabled={loading}
@@ -128,9 +122,11 @@ export default function Home() {
         <>
           <div
             ref={pdfRef}
-            className="bg-white text-black mt-10 p-8 w-full max-w-2xl whitespace-pre-line"
+            className="bg-white text-black mt-10 p-8 w-full max-w-2xl"
           >
-            <h2 className="text-2xl font-bold mb-4">MyCustodyCoach Response</h2>
+            <h2 className="text-2xl font-bold mb-4">
+              MyCustodyCoach Response
+            </h2>
             <p>
               <strong>Date:</strong> {new Date().toLocaleDateString()}
             </p>
