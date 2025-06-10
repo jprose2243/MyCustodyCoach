@@ -73,7 +73,7 @@ export default function Home() {
       image: { type: "jpeg", quality: 0.98 },
       html2canvas: { scale: 2 },
       jsPDF: { unit: "in", format: "letter", orientation: "portrait" },
-      pagebreak: { mode: ["avoid-all", "css", "legacy"] }
+      pagebreak: { mode: ["avoid-all", "css", "legacy"] },
     };
 
     html2pdf().set(opt).from(pdfRef.current).save();
