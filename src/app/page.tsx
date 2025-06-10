@@ -18,7 +18,7 @@ export default function Home() {
     setFileName(file.name);
 
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       const text = event.target?.result;
       if (typeof text === "string") {
         setFileText(text);
@@ -39,14 +39,20 @@ export default function Home() {
         body: JSON.stringify({ prompt, tone, fileContext: fileText }),
       });
 
-      const json = await res.json();
+      let json;
+      try {
+        json = await res.json();
+      } catch (e) {
+        throw new Error("Invalid JSON received from API");
+      }
+
       if (!res.ok || !json.result) {
-        throw new Error(json.error || "Invalid OpenAI response.");
+        throw new Error(json.error || "Failed to get response");
       }
 
       setResponse(json.result);
     } catch (err: any) {
-      console.error("⚠️ OpenAI error:", err);
+      console.error("⚠️ OpenAI error response:", err);
       setError(err.message || "Unknown error occurred.");
     } finally {
       setLoading(false);
@@ -67,79 +73,102 @@ export default function Home() {
       image: { type: "jpeg", quality: 0.98 },
       html2canvas: { scale: 2 },
       jsPDF: { unit: "in", format: "letter", orientation: "portrait" },
-      pagebreak: { mode: ["avoid-all", "css", "legacy"] },
     };
 
     html2pdf().set(opt).from(pdfRef.current).save();
   };
 
   return (
-    <main className="min-h-screen bg-black text-white p-4 flex flex-col items-center">
-      <h1 className="text-3xl font-bold mb-6">MyCustodyCoach</h1>
+    <main className="min-h-screen bg-gray-100 text-black">
+      <nav className="bg-white shadow p-4">
+        <div className="max-w-7xl mx-auto flex justify-between items-center">
+          <h1 className="text-xl font-bold text-gray-800">MyCustodyCoach</h1>
+          <span className="text-sm text-gray-500 italic">Your AI Assistant for Custody Clarity</span>
+        </div>
+      </nav>
 
-      <textarea
-        rows={5}
-        placeholder="Paste your court question here..."
-        className="w-full max-w-2xl bg-zinc-900 text-white p-4 rounded border border-zinc-700 mb-4"
-        value={prompt}
-        onChange={(e) => setPrompt(e.target.value)}
-      />
+      <section className="flex flex-col items-center px-4 py-12">
+        <div className="bg-white rounded-lg shadow-lg p-8 w-full max-w-3xl space-y-6">
+          <h2 className="text-3xl font-bold text-center text-gray-800">Get Guidance on Your Custody Questions</h2>
 
-      <select
-        className="w-full max-w-2xl bg-zinc-900 text-white p-2 rounded border border-zinc-700 mb-4"
-        value={tone}
-        onChange={(e) => setTone(e.target.value)}
-      >
-        <option value="calm">Calm</option>
-        <option value="firm">Firm</option>
-        <option value="cooperative">Cooperative</option>
-        <option value="empathetic">Empathetic</option>
-      </select>
+          <div className="space-y-4">
+            <div>
+              <label htmlFor="prompt" className="block font-medium mb-1">Court Question</label>
+              <textarea
+                id="prompt"
+                name="prompt"
+                rows={5}
+                placeholder="Paste your court question here..."
+                className="w-full bg-gray-50 p-3 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+              />
+            </div>
 
-      <input
-        type="file"
-        accept=".txt"
-        onChange={handleFileChange}
-        className="mb-4"
-      />
+            <div>
+              <label htmlFor="tone" className="block font-medium mb-1">Tone of Voice</label>
+              <select
+                id="tone"
+                name="tone"
+                className="w-full bg-gray-50 p-3 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={tone}
+                onChange={(e) => setTone(e.target.value)}
+              >
+                <option value="calm">Calm</option>
+                <option value="firm">Firm</option>
+                <option value="cooperative">Cooperative</option>
+                <option value="empathetic">Empathetic</option>
+              </select>
+            </div>
 
-      {fileName && <p className="mb-2 text-sm text-zinc-400">File loaded: {fileName}</p>}
-
-      <button
-        className="bg-blue-600 hover:bg-blue-700 text-white mt-4 py-2 px-6 rounded disabled:opacity-50"
-        onClick={handleSubmit}
-        disabled={loading}
-      >
-        {loading ? "Generating..." : "Generate Response"}
-      </button>
-
-      {error && <p className="text-red-400 mt-4">{error}</p>}
-
-      {response && (
-        <>
-          <div
-            ref={pdfRef}
-            className="bg-white text-black mt-10 p-8 w-full max-w-2xl rounded shadow leading-relaxed space-y-4"
-          >
-            <h2 className="text-2xl font-bold">MyCustodyCoach Response</h2>
-            <p><strong>Date:</strong> {new Date().toLocaleDateString()}</p>
-            <p><strong>Tone:</strong> {tone}</p>
-            <p><strong>Question:</strong> {prompt}</p>
-            <hr />
-            <p><strong>Response:</strong></p>
-            {response.split("\n").map((line, i) => (
-              <p key={i}>{line}</p>
-            ))}
+            <div>
+              <label htmlFor="file-upload" className="block font-medium mb-1">Attach File (optional)</label>
+              <input
+                id="file-upload"
+                name="file-upload"
+                type="file"
+                accept=".txt"
+                onChange={handleFileChange}
+                className="w-full bg-gray-50 p-2 border border-gray-300 rounded file:mr-3 file:py-2 file:px-4 file:rounded file:border-0 file:bg-blue-600 file:text-white hover:file:bg-blue-700"
+              />
+              {fileName && <p className="text-sm text-gray-500 mt-1">File loaded: {fileName}</p>}
+            </div>
           </div>
 
           <button
-            onClick={handleDownloadPDF}
-            className="bg-green-600 hover:bg-green-700 text-white mt-6 py-2 px-6 rounded"
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 px-6 rounded font-medium disabled:opacity-50"
+            onClick={handleSubmit}
+            disabled={loading}
           >
-            Download PDF
+            {loading ? "Generating..." : "Generate Response"}
           </button>
-        </>
-      )}
+
+          {error && <p className="text-red-600 font-medium text-center mt-4">{error}</p>}
+        </div>
+
+        {response && (
+          <div className="mt-12 w-full max-w-3xl">
+            <div ref={pdfRef} className="bg-white rounded-lg shadow p-8 space-y-4">
+              <h3 className="text-xl font-bold">MyCustodyCoach Response</h3>
+              <p><strong>Date:</strong> {new Date().toLocaleDateString()}</p>
+              <p><strong>Tone:</strong> {tone}</p>
+              <p><strong>Question:</strong> {prompt}</p>
+              <hr className="my-2" />
+              <p><strong>Response:</strong></p>
+              {response.split("\n").map((line, i) => (
+                <p key={i}>{line}</p>
+              ))}
+            </div>
+
+            <button
+              onClick={handleDownloadPDF}
+              className="w-full bg-green-600 hover:bg-green-700 text-white py-3 px-6 rounded font-medium mt-6"
+            >
+              Download PDF
+            </button>
+          </div>
+        )}
+      </section>
     </main>
   );
 }
