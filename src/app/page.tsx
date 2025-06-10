@@ -13,9 +13,7 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const pdfRef = useRef(null);
 
-  const handleFileChange = async (
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setFileName(file.name);
@@ -68,35 +66,16 @@ export default function Home() {
       return;
     }
 
-    const element = pdfRef.current.cloneNode(true) as HTMLElement;
-    element.style.margin = '0';
-    element.style.padding = '0';
-    element.style.fontSize = '12px';
-    element.style.width = '100%';
-    element.style.boxSizing = 'border-box';
-    element.classList.remove('mt-10', 'p-8');
-
-    const overlay = document.createElement('div');
-    overlay.style.position = 'fixed';
-    overlay.style.top = '-10000px';
-    overlay.style.left = '0';
-    overlay.appendChild(element);
-    document.body.appendChild(overlay);
-
     window.html2pdf()
       .set({
         margin: [0.0, 0.0, 0.0, 0.0],
-        filename: 'MyCustodyCoach_Response.pdf',
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2 },
-        jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' },
-        pagebreak: { mode: ['css', 'avoid-all'] }
+        filename: "MyCustodyCoach_Response.pdf",
+        image: { type: "jpeg", quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true },
+        jsPDF: { unit: "in", format: "letter", orientation: "portrait" },
       })
-      .from(element)
-      .save()
-      .then(() => {
-        document.body.removeChild(overlay);
-      });
+      .from(pdfRef.current)
+      .save();
   };
 
   return (
@@ -121,7 +100,6 @@ export default function Home() {
         className="w-full max-w-2xl bg-zinc-900 text-white p-2 rounded border border-zinc-700 mb-4"
         value={tone}
         onChange={(e) => setTone(e.target.value)}
-        autoComplete="tone"
       >
         <option value="calm">Calm</option>
         <option value="firm">Firm</option>
@@ -129,21 +107,16 @@ export default function Home() {
         <option value="empathetic">Empathetic</option>
       </select>
 
-      <label htmlFor="file-upload" className="sr-only">Upload Context File</label>
+      <label htmlFor="file-upload" className="sr-only">Upload File</label>
       <select
         id="file-upload"
         name="file-upload"
-        className="w-full bg-zinc-900 text-white p-2 rounded border border-zinc-700 mb-4"
-        onChange={handleFileChange as any} // simplified cast for TS
+        className="w-full max-w-2xl bg-zinc-900 text-white p-2 rounded border border-zinc-700 mb-4"
+        onChange={handleFileChange as any} // TS expects a file input, workaround here
       >
         <option>Choose File</option>
+        <option disabled>{fileName ? `File loaded: ${fileName}` : "No file selected"}</option>
       </select>
-
-      {fileName && (
-        <p className="mb-2 text-sm text-zinc-400">
-          File loaded: {fileName}
-        </p>
-      )}
 
       <button
         className="bg-blue-600 hover:bg-blue-700 text-white mt-4 py-2 px-6 rounded disabled:opacity-50"
@@ -159,24 +132,15 @@ export default function Home() {
         <>
           <div
             ref={pdfRef}
-            className="bg-white text-black mt-10 p-8 w-full max-w-2xl"
+            id="pdf-content"
+            className="bg-white text-black mt-10 p-8 w-full max-w-2xl shadow-xl rounded"
           >
-            <h2 className="text-2xl font-bold mb-4">
-              MyCustodyCoach Response
-            </h2>
-            <p>
-              <strong>Date:</strong> {new Date().toLocaleDateString()}
-            </p>
-            <p>
-              <strong>Tone:</strong> {tone}
-            </p>
-            <p>
-              <strong>Question:</strong> {prompt}
-            </p>
+            <h2 className="text-2xl font-bold mb-4">MyCustodyCoach Response</h2>
+            <p><strong>Date:</strong> {new Date().toLocaleDateString()}</p>
+            <p><strong>Tone:</strong> {tone}</p>
+            <p><strong>Question:</strong> {prompt}</p>
             <hr className="my-4" />
-            <p>
-              <strong>Response:</strong>
-            </p>
+            <p><strong>Response:</strong></p>
             {response.split("\n").map((line, i) => (
               <p key={i}>{line}</p>
             ))}
