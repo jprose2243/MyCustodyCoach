@@ -1,8 +1,6 @@
 "use client";
 
 import { useState, useRef } from "react";
-import * as pdfjsLib from "pdfjs-dist";
-import mammoth from "mammoth";
 
 export default function Home() {
   const [prompt, setPrompt] = useState("");
@@ -14,43 +12,21 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const pdfRef = useRef<HTMLDivElement>(null);
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setFileName(file.name);
 
-    const extension = file.name.split(".").pop()?.toLowerCase();
-
-    try {
-      if (extension === "pdf") {
-        const arrayBuffer = await file.arrayBuffer();
-        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-        let text = "";
-        for (let i = 1; i <= pdf.numPages; i++) {
-          const page = await pdf.getPage(i);
-          const content = await page.getTextContent();
-          text += content.items.map((item: any) => item.str).join(" ") + "\n";
-        }
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const text = event.target?.result;
+      if (typeof text === "string") {
         setFileText(text);
-      } else if (extension === "docx") {
-        const arrayBuffer = await file.arrayBuffer();
-        const result = await mammoth.extractRawText({ arrayBuffer });
-        setFileText(result.value);
-      } else if (extension === "txt") {
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          if (typeof event.target?.result === "string") {
-            setFileText(event.target.result);
-          }
-        };
-        reader.readAsText(file);
-      } else {
-        throw new Error("Unsupported file type");
       }
-    } catch (err) {
-      setError("Error reading file: " + (err as Error).message);
-      setFileText("");
-    }
+    };
+    reader.readAsText(file);
   };
 
   const handleSubmit = async () => {
@@ -92,6 +68,7 @@ export default function Home() {
     }
 
     const html2pdf = (await import("html2pdf.js")).default;
+
     const opt = {
       margin: [0.5, 0.5, 0.5, 0.5],
       filename: "MyCustodyCoach_Response.pdf",
@@ -104,40 +81,42 @@ export default function Home() {
   };
 
   return (
-    <main className="min-h-screen bg-gray-100 text-black p-4 flex flex-col items-center">
-      <header className="w-full max-w-4xl flex flex-col items-center py-8">
-        <h1 className="text-4xl font-bold mb-2">MyCustodyCoach</h1>
-        <p className="text-lg text-gray-600">
+    <main className="min-h-screen bg-white text-gray-900 p-8 flex flex-col items-center space-y-6">
+      <nav className="w-full max-w-4xl flex justify-between items-center py-4">
+        <h1 className="text-3xl font-extrabold tracking-tight">
+          MyCustodyCoach
+        </h1>
+        <p className="text-sm text-gray-500 hidden sm:block">
           Your AI Assistant for Custody Clarity
         </p>
-      </header>
+      </nav>
 
-      <section className="w-full max-w-2xl bg-white shadow p-6 rounded space-y-6">
+      <section className="w-full max-w-2xl bg-white shadow-lg rounded-lg p-6 space-y-6">
         <div>
-          <label htmlFor="prompt" className="block text-sm font-medium">
-            Your Question
+          <label htmlFor="prompt" className="block font-semibold mb-1">
+            Court Question
           </label>
           <textarea
             id="prompt"
             name="prompt"
             rows={5}
-            className="mt-1 w-full bg-zinc-100 p-4 rounded border border-zinc-300 focus:outline-none focus:ring focus:ring-blue-300"
             placeholder="Paste your court question here..."
+            className="w-full bg-zinc-100 text-black p-4 rounded border border-zinc-300 focus:outline-blue-500"
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
           />
         </div>
 
         <div>
-          <label htmlFor="tone" className="block text-sm font-medium">
+          <label htmlFor="tone" className="block font-semibold mb-1">
             Tone
           </label>
           <select
             id="tone"
             name="tone"
+            className="w-full bg-zinc-100 text-black p-2 rounded border border-zinc-300 focus:outline-blue-500"
             value={tone}
             onChange={(e) => setTone(e.target.value)}
-            className="mt-1 w-full bg-zinc-100 p-2 rounded border border-zinc-300"
           >
             <option value="calm">Calm</option>
             <option value="firm">Firm</option>
@@ -147,51 +126,67 @@ export default function Home() {
         </div>
 
         <div>
-          <label htmlFor="file-upload" className="block text-sm font-medium">
-            Upload Evidence
+          <label htmlFor="file-upload" className="block font-semibold mb-1">
+            Upload Context (Optional)
           </label>
           <input
             id="file-upload"
             name="file-upload"
             type="file"
-            accept=".txt,.pdf,.docx"
+            accept=".txt"
             onChange={handleFileChange}
-            className="mt-1"
+            className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
           />
           {fileName && (
-            <p className="text-sm text-gray-500 mt-1">File loaded: {fileName}</p>
+            <p className="mt-2 text-sm text-gray-500">File loaded: {fileName}</p>
           )}
         </div>
 
-        {error && <p className="text-red-600 mt-2">{error}</p>}
-
         <button
+          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded"
           onClick={handleSubmit}
           disabled={loading}
-          className="w-full bg-blue-600 text-white font-medium py-2 rounded hover:bg-blue-700 disabled:opacity-50"
         >
           {loading ? "Generating..." : "Generate Response"}
         </button>
+
+        {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
       </section>
 
       {response && (
-        <section className="w-full max-w-2xl bg-white mt-10 p-8 rounded shadow" ref={pdfRef}>
-          <h2 className="text-2xl font-bold mb-4">MyCustodyCoach Response</h2>
-          <p><strong>Date:</strong> {new Date().toLocaleDateString()}</p>
-          <p><strong>Tone:</strong> {tone}</p>
-          <p><strong>Question:</strong> {prompt}</p>
+        <section
+          ref={pdfRef}
+          className="bg-white text-black mt-10 p-8 w-full max-w-2xl rounded shadow"
+        >
+          <h2 className="text-2xl font-bold mb-4">
+            MyCustodyCoach Response
+          </h2>
+          <p>
+            <strong>Date:</strong> {new Date().toLocaleDateString()}
+          </p>
+          <p className="mt-1">
+            <strong>Tone:</strong> {tone}
+          </p>
+          <p className="mt-1">
+            <strong>Question:</strong> {prompt}
+          </p>
           <hr className="my-4" />
-          <p><strong>Response:</strong></p>
-          {response.split("\n").map((line, i) => (
-            <p key={i} className="mb-2">{line}</p>
-          ))}
-          <button
-            onClick={handleDownloadPDF}
-            className="mt-6 w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded"
-          >
-            Download PDF
-          </button>
+          <p className="font-semibold mb-2">Response:</p>
+          <div className="space-y-2">
+            {response.split("\n").map((line, i) => (
+              <p key={i}>{line}</p>
+            ))}
+          </div>
         </section>
+      )}
+
+      {response && (
+        <button
+          onClick={handleDownloadPDF}
+          className="bg-green-600 hover:bg-green-700 text-white mt-6 py-2 px-6 rounded"
+        >
+          Download PDF
+        </button>
       )}
     </main>
   );
