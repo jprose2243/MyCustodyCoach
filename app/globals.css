@@ -1,0 +1,16 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Optional: custom global styles */
+
+body {
+  @apply bg-white text-gray-900 antialiased;
+}
+
+input,
+button,
+textarea,
+select {
+  @apply focus:outline-none;
+}
