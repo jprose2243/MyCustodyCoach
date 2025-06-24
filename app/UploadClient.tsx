@@ -4,12 +4,10 @@ import { useState } from 'react';
 import { pdf } from '@react-pdf/renderer';
 import { saveAs } from 'file-saver';
 import dynamic from 'next/dynamic';
-import type { FC } from 'react';
-import type { PdfProps } from '@/app/components/PdfDocument';
 
 const PdfDocument = dynamic(() => import('@/app/components/PdfDocument'), {
   ssr: false,
-}) as FC<PdfProps>;
+});
 
 type Props = {
   user: {
@@ -22,8 +20,8 @@ type Props = {
 export default function UploadClient({ user }: Props) {
   const [prompt, setPrompt] = useState('');
   const [tone, setTone] = useState('calm');
-  const [fileName, setFileName] = useState('');
   const [file, setFile] = useState<File | null>(null);
+  const [fileName, setFileName] = useState('');
   const [response, setResponse] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -40,12 +38,13 @@ export default function UploadClient({ user }: Props) {
     setFile(uploaded);
     setFileName(uploaded.name);
     setError('');
+    console.log('📂 File selected:', uploaded.name);
   };
 
   const handleSubmit = async () => {
-    setLoading(true);
     setError('');
     setResponse('');
+    setLoading(true);
 
     try {
       const formData = new FormData();
@@ -58,15 +57,15 @@ export default function UploadClient({ user }: Props) {
         body: formData,
       });
 
-      const json = await res.json();
-      if (!res.ok || !json.result) {
-        throw new Error(json.error || 'AI response failed.');
+      const data = await res.json();
+      if (!res.ok || !data.result) {
+        throw new Error(data.error || 'Something went wrong.');
       }
 
-      setResponse(json.result);
+      setResponse(data.result);
     } catch (err: any) {
       console.error('⚠️ API Error:', err);
-      setError(err.message || 'Something went wrong.');
+      setError(err.message || 'Unexpected error occurred.');
     } finally {
       setLoading(false);
     }
@@ -75,11 +74,16 @@ export default function UploadClient({ user }: Props) {
   const handleDownloadPDF = async () => {
     if (!response) return alert('No response to export.');
 
-    const blob = await pdf(
-      <PdfDocument prompt={prompt} tone={tone} response={response} />
-    ).toBlob();
+    try {
+      const blob = await pdf(
+        <PdfDocument prompt={prompt} tone={tone} response={response} />
+      ).toBlob();
 
-    saveAs(blob, 'MyCustodyCoach_Response.pdf');
+      saveAs(blob, 'MyCustodyCoach_Response.pdf');
+    } catch (err) {
+      console.error('❌ PDF export error:', err);
+      alert('Failed to generate PDF.');
+    }
   };
 
   return (
@@ -143,8 +147,8 @@ export default function UploadClient({ user }: Props) {
 
         <button
           onClick={handleSubmit}
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded"
           disabled={loading}
+          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded"
         >
           {loading ? 'Generating...' : 'Generate Response'}
         </button>
@@ -165,7 +169,7 @@ export default function UploadClient({ user }: Props) {
             <strong>Question:</strong> {prompt}
           </p>
           <hr className="my-4" />
-          <div className="space-y-2 whitespace-pre-wrap">{response}</div>
+          <div className="whitespace-pre-wrap space-y-2">{response}</div>
         </section>
       )}
 
