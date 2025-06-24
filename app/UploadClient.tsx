@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useRef } from "react";
+import { useState } from "react";
+import { PDFDownloadLink, Document, Page, Text, StyleSheet } from '@react-pdf/renderer';
 
 type Props = {
   user: {
@@ -10,6 +11,28 @@ type Props = {
   };
 };
 
+const styles = StyleSheet.create({
+  page: { padding: 30, fontSize: 12 },
+  section: { marginBottom: 10 },
+  heading: { fontSize: 18, marginBottom: 10 },
+  label: { fontWeight: 'bold' },
+});
+
+const PdfDocument = ({ prompt, tone, response }: { prompt: string, tone: string, response: string }) => (
+  <Document>
+    <Page size="LETTER" style={styles.page}>
+      <Text style={styles.heading}>MyCustodyCoach Response</Text>
+      <Text style={styles.section}><Text style={styles.label}>Date:</Text> {new Date().toLocaleDateString()}</Text>
+      <Text style={styles.section}><Text style={styles.label}>Tone:</Text> {tone}</Text>
+      <Text style={styles.section}><Text style={styles.label}>Question:</Text> {prompt}</Text>
+      <Text style={styles.section}><Text style={styles.label}>Response:</Text></Text>
+      {response.split("\n").map((line, i) => (
+        <Text key={i}>{line}</Text>
+      ))}
+    </Page>
+  </Document>
+);
+
 export default function UploadClient({ user }: Props) {
   const [prompt, setPrompt] = useState("");
   const [tone, setTone] = useState("calm");
@@ -18,7 +41,6 @@ export default function UploadClient({ user }: Props) {
   const [response, setResponse] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const pdfRef = useRef<HTMLDivElement>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const uploaded = e.target.files?.[0];
@@ -63,21 +85,6 @@ export default function UploadClient({ user }: Props) {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleDownloadPDF = async () => {
-    if (!pdfRef.current) return alert("No response to export.");
-    const html2pdf = (await import("html2pdf.js")).default;
-    html2pdf()
-      .set({
-        margin: 0.5,
-        filename: "MyCustodyCoach_Response.pdf",
-        image: { type: "jpeg", quality: 0.98 },
-        html2canvas: { scale: 2 },
-        jsPDF: { unit: "in", format: "letter", orientation: "portrait" },
-      })
-      .from(pdfRef.current)
-      .save();
   };
 
   return (
@@ -145,13 +152,13 @@ export default function UploadClient({ user }: Props) {
       </section>
 
       {response && (
-        <section ref={pdfRef} className="bg-white text-black mt-10 p-8 w-full max-w-2xl rounded shadow">
+        <section className="bg-white text-black mt-10 p-8 w-full max-w-2xl rounded shadow">
           <h2 className="text-2xl font-bold mb-4">MyCustodyCoach Response</h2>
           <p><strong>Date:</strong> {new Date().toLocaleDateString()}</p>
           <p><strong>Tone:</strong> {tone}</p>
           <p><strong>Question:</strong> {prompt}</p>
           <hr className="my-4" />
-          <div className="space-y-2">
+          <div className="space-y-2 whitespace-pre-wrap">
             {response.split("\n").map((line, i) => (
               <p key={i}>{line}</p>
             ))}
@@ -160,12 +167,16 @@ export default function UploadClient({ user }: Props) {
       )}
 
       {response && (
-        <button
-          onClick={handleDownloadPDF}
-          className="bg-green-600 hover:bg-green-700 text-white mt-6 py-2 px-6 rounded"
+        <PDFDownloadLink
+          document={<PdfDocument prompt={prompt} tone={tone} response={response} />}
+          fileName="MyCustodyCoach_Response.pdf"
         >
-          Download PDF
-        </button>
+          {({ loading }) =>
+            <button className="bg-green-600 hover:bg-green-700 text-white mt-6 py-2 px-6 rounded">
+              {loading ? "Preparing PDF..." : "Download PDF"}
+            </button>
+          }
+        </PDFDownloadLink>
       )}
     </main>
   );
