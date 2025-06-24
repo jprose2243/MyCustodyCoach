@@ -1,18 +1,15 @@
 import mammoth from 'mammoth';
-import { PDFDocument } from 'pdf-lib';
+import { extractPdfText } from '../app/utils/extractPdfText';
 
 export async function parseFileContent(buffer: Buffer, mimetype: string): Promise<string> {
   if (mimetype === 'application/pdf') {
-    const pdfDoc = await PDFDocument.load(buffer);
-    const pages = pdfDoc.getPages();
-    let text = '';
-
-    for (const page of pages) {
-      const content = page.getTextContent?.(); // may be undefined in some builds
-      if (content) text += content;
+    try {
+      const text = await extractPdfText(buffer);
+      return text || '[No text extracted from PDF]';
+    } catch (err: any) {
+      console.error('PDF extraction failed:', err);
+      return `[PDF extraction failed: ${err?.message || err}]`;
     }
-
-    return text || '[No text extracted from PDF]';
   }
 
   if (mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
