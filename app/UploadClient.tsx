@@ -4,12 +4,12 @@ import { useState } from 'react';
 import { pdf } from '@react-pdf/renderer';
 import { saveAs } from 'file-saver';
 import dynamic from 'next/dynamic';
+import type { FC } from 'react';
 import type { PdfProps } from '@/app/components/PdfDocument';
 
-// ✅ Dynamically import the PDF component with props typing
 const PdfDocument = dynamic(() => import('@/app/components/PdfDocument'), {
   ssr: false,
-}) as React.ComponentType<PdfProps>;
+}) as FC<PdfProps>;
 
 type Props = {
   user: {
@@ -40,7 +40,6 @@ export default function UploadClient({ user }: Props) {
     setFile(uploaded);
     setFileName(uploaded.name);
     setError('');
-    console.log('📂 Selected file:', uploaded.name, uploaded.type);
   };
 
   const handleSubmit = async () => {
@@ -95,9 +94,7 @@ export default function UploadClient({ user }: Props) {
 
       <section className="w-full max-w-2xl bg-white shadow-lg rounded-lg p-6 space-y-6">
         <div>
-          <label htmlFor="prompt" className="block font-semibold mb-1">
-            Court Question
-          </label>
+          <label htmlFor="prompt" className="block font-semibold mb-1">Court Question</label>
           <textarea
             id="prompt"
             rows={5}
@@ -109,9 +106,7 @@ export default function UploadClient({ user }: Props) {
         </div>
 
         <div>
-          <label htmlFor="tone" className="block font-semibold mb-1">
-            Tone
-          </label>
+          <label htmlFor="tone" className="block font-semibold mb-1">Tone</label>
           <select
             id="tone"
             className="w-full bg-zinc-100 text-black p-2 rounded border border-zinc-300 focus:outline-blue-500"
@@ -126,9 +121,7 @@ export default function UploadClient({ user }: Props) {
         </div>
 
         <div>
-          <label htmlFor="contextFile" className="block font-semibold mb-1">
-            Upload PDF (Optional)
-          </label>
+          <label htmlFor="contextFile" className="block font-semibold mb-1">Upload PDF (Optional)</label>
           <input
             id="contextFile"
             name="contextFile"
@@ -137,9 +130,7 @@ export default function UploadClient({ user }: Props) {
             onChange={handleFileChange}
             className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
           />
-          {fileName && (
-            <p className="mt-2 text-sm text-gray-500">📁 File loaded: {fileName}</p>
-          )}
+          {fileName && <p className="mt-2 text-sm text-gray-500">📁 File loaded: {fileName}</p>}
         </div>
 
         <button
@@ -156,15 +147,9 @@ export default function UploadClient({ user }: Props) {
       {response && (
         <section className="bg-white text-black mt-10 p-8 w-full max-w-2xl rounded shadow">
           <h2 className="text-2xl font-bold mb-4">MyCustodyCoach Response</h2>
-          <p>
-            <strong>Date:</strong> {new Date().toLocaleDateString()}
-          </p>
-          <p>
-            <strong>Tone:</strong> {tone}
-          </p>
-          <p>
-            <strong>Question:</strong> {prompt}
-          </p>
+          <p><strong>Date:</strong> {new Date().toLocaleDateString()}</p>
+          <p><strong>Tone:</strong> {tone}</p>
+          <p><strong>Question:</strong> {prompt}</p>
           <hr className="my-4" />
           <div className="space-y-2 whitespace-pre-wrap">{response}</div>
         </section>

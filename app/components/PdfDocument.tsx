@@ -2,8 +2,8 @@
 
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
 
-type Props = {
-  question: string;
+export type PdfProps = {
+  prompt: string;
   tone: string;
   response: string;
 };
@@ -28,7 +28,7 @@ const styles = StyleSheet.create({
   },
 });
 
-export default function PdfDocument({ question, tone, response }: Props) {
+export default function PdfDocument({ prompt, tone, response }: PdfProps) {
   return (
     <Document>
       <Page size="A4" style={styles.page}>
@@ -45,7 +45,7 @@ export default function PdfDocument({ question, tone, response }: Props) {
           </Text>
           <Text>
             <Text style={styles.label}>Question: </Text>
-            {question}
+            {prompt}
           </Text>
         </View>
 
