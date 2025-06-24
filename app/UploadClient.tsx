@@ -14,25 +14,25 @@ export default function UploadClient({ user }: Props) {
   const [prompt, setPrompt] = useState("");
   const [tone, setTone] = useState("calm");
   const [fileName, setFileName] = useState("");
-  const [fileText, setFileText] = useState("");
+  const [file, setFile] = useState<File | null>(null);
   const [response, setResponse] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const pdfRef = useRef<HTMLDivElement>(null);
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setFileName(file.name);
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const uploaded = e.target.files?.[0];
+    if (!uploaded) return;
 
-    const reader = new FileReader();
-    reader.onload = async (event) => {
-      const text = event.target?.result;
-      if (typeof text === "string") {
-        setFileText(text);
-      }
-    };
-    reader.readAsText(file);
+    if (!uploaded.type.includes("pdf")) {
+      setError("❌ Only PDF files are supported.");
+      return;
+    }
+
+    setFile(uploaded);
+    setFileName(uploaded.name);
+    setError("");
+    console.log("📂 Selected file:", uploaded.name, uploaded.type);
   };
 
   const handleSubmit = async () => {
@@ -41,43 +41,43 @@ export default function UploadClient({ user }: Props) {
     setResponse("");
 
     try {
-      const res = await fetch("/api/generate", {
+      const formData = new FormData();
+      formData.append("question", prompt);
+      formData.append("tone", tone);
+      if (file) formData.append("contextFile", file); // Must match backend
+
+      const res = await fetch("/api/generate-response", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt, tone, fileContext: fileText }),
+        body: formData,
       });
 
       const json = await res.json();
       if (!res.ok || !json.result) {
-        throw new Error(json.error || "Failed to get response");
+        throw new Error(json.error || "AI response failed.");
       }
 
       setResponse(json.result);
     } catch (err: any) {
-      console.error("⚠️ OpenAI error response:", err);
-      setError(err.message || "Unknown error occurred.");
+      console.error("⚠️ API Error:", err);
+      setError(err.message || "Something went wrong.");
     } finally {
       setLoading(false);
     }
   };
 
   const handleDownloadPDF = async () => {
-    if (typeof window === "undefined" || !pdfRef.current) {
-      alert("PDF export not available.");
-      return;
-    }
-
+    if (!pdfRef.current) return alert("No response to export.");
     const html2pdf = (await import("html2pdf.js")).default;
-
-    const opt = {
-      margin: [0.5, 0.5, 0.5, 0.5],
-      filename: "MyCustodyCoach_Response.pdf",
-      image: { type: "jpeg", quality: 0.98 },
-      html2canvas: { scale: 2 },
-      jsPDF: { unit: "in", format: "letter", orientation: "portrait" },
-    };
-
-    html2pdf().set(opt).from(pdfRef.current).save();
+    html2pdf()
+      .set({
+        margin: 0.5,
+        filename: "MyCustodyCoach_Response.pdf",
+        image: { type: "jpeg", quality: 0.98 },
+        html2canvas: { scale: 2 },
+        jsPDF: { unit: "in", format: "letter", orientation: "portrait" },
+      })
+      .from(pdfRef.current)
+      .save();
   };
 
   return (
@@ -92,12 +92,9 @@ export default function UploadClient({ user }: Props) {
 
       <section className="w-full max-w-2xl bg-white shadow-lg rounded-lg p-6 space-y-6">
         <div>
-          <label htmlFor="prompt" className="block font-semibold mb-1">
-            Court Question
-          </label>
+          <label htmlFor="prompt" className="block font-semibold mb-1">Court Question</label>
           <textarea
             id="prompt"
-            name="prompt"
             rows={5}
             placeholder="Paste your court question here..."
             className="w-full bg-zinc-100 text-black p-4 rounded border border-zinc-300 focus:outline-blue-500"
@@ -110,7 +107,6 @@ export default function UploadClient({ user }: Props) {
           <label htmlFor="tone" className="block font-semibold mb-1">Tone</label>
           <select
             id="tone"
-            name="tone"
             className="w-full bg-zinc-100 text-black p-2 rounded border border-zinc-300 focus:outline-blue-500"
             value={tone}
             onChange={(e) => setTone(e.target.value)}
@@ -123,25 +119,23 @@ export default function UploadClient({ user }: Props) {
         </div>
 
         <div>
-          <label htmlFor="file-upload" className="block font-semibold mb-1">
-            Upload Context (Optional)
-          </label>
+          <label htmlFor="contextFile" className="block font-semibold mb-1">Upload PDF (Optional)</label>
           <input
-            id="file-upload"
-            name="file-upload"
+            id="contextFile"
+            name="contextFile"
             type="file"
-            accept=".txt"
+            accept=".pdf"
             onChange={handleFileChange}
             className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
           />
           {fileName && (
-            <p className="mt-2 text-sm text-gray-500">File loaded: {fileName}</p>
+            <p className="mt-2 text-sm text-gray-500">📁 File loaded: {fileName}</p>
           )}
         </div>
 
         <button
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded"
           onClick={handleSubmit}
+          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded"
           disabled={loading}
         >
           {loading ? "Generating..." : "Generate Response"}
@@ -154,10 +148,9 @@ export default function UploadClient({ user }: Props) {
         <section ref={pdfRef} className="bg-white text-black mt-10 p-8 w-full max-w-2xl rounded shadow">
           <h2 className="text-2xl font-bold mb-4">MyCustodyCoach Response</h2>
           <p><strong>Date:</strong> {new Date().toLocaleDateString()}</p>
-          <p className="mt-1"><strong>Tone:</strong> {tone}</p>
-          <p className="mt-1"><strong>Question:</strong> {prompt}</p>
+          <p><strong>Tone:</strong> {tone}</p>
+          <p><strong>Question:</strong> {prompt}</p>
           <hr className="my-4" />
-          <p className="font-semibold mb-2">Response:</p>
           <div className="space-y-2">
             {response.split("\n").map((line, i) => (
               <p key={i}>{line}</p>

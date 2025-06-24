@@ -1,7 +1,8 @@
-"use client";
+'use client';
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { signIn } from "next-auth/react";
 
 export default function SignUpPage() {
   const router = useRouter();
@@ -35,10 +36,23 @@ export default function SignUpPage() {
 
       if (!res.ok) throw new Error(json.error || "Signup failed");
 
-      // ✅ Redirect to the payment setup page after successful signup
+      console.log("✅ Signup success, auto-signing in...");
+
+      const loginRes = await signIn("credentials", {
+        redirect: false,
+        email,
+        password,
+      });
+
+      if (!loginRes || loginRes.error) {
+        console.warn("❌ Auto-login failed:", loginRes?.error);
+        throw new Error("Login failed after signup");
+      }
+
       router.push("/auth/setup-payment");
     } catch (err: any) {
-      setError(err.message);
+      console.error("❌ Signup error:", err);
+      setError(err.message || "Something went wrong");
     } finally {
       setLoading(false);
     }
@@ -124,7 +138,8 @@ export default function SignUpPage() {
         {error && <p className="text-red-500 text-sm mt-4">{error}</p>}
 
         <p className="text-sm text-center text-gray-500 mt-6">
-          Already have an account? <a href="/auth/signin" className="text-blue-600">Sign in here</a>
+          Already have an account?{" "}
+          <a href="/auth/signin" className="text-blue-600">Sign in here</a>
         </p>
       </div>
     </main>

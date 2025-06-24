@@ -16,7 +16,9 @@ export default function SignInPage() {
     setError("");
     setLoading(true);
 
-    console.log("🔐 Attempting sign in with:", { email });
+    if (process.env.NODE_ENV === "development") {
+      console.log("🔐 Attempting sign in with:", { email });
+    }
 
     const res = await signIn("credentials", {
       redirect: false,
@@ -24,14 +26,17 @@ export default function SignInPage() {
       password,
     });
 
-    console.log("signIn result:", res);
+    if (process.env.NODE_ENV === "development") {
+      console.log("🔐 signIn result:", res);
+    }
 
     if (!res || res.error) {
-      console.log("❌ Login failed:", res?.error);
+      console.warn("❌ Login failed:", res?.error);
       setError("Invalid credentials. Please try again.");
     } else {
-      console.log("✅ Login successful! Redirecting to homepage...");
-      router.push("/"); // ✅ Redirect to your AI assistant on the homepage
+      console.log("✅ Login successful! Redirecting...");
+      // 🔁 Redirect to your deployed AI assistant app (or change if needed)
+      router.push("https://app.mycustodycoach.com/");
     }
 
     setLoading(false);

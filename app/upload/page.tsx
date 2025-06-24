@@ -5,73 +5,61 @@ import { useState } from 'react';
 export default function UploadPage() {
   const [file, setFile] = useState<File | null>(null);
   const [question, setQuestion] = useState('');
-  const [tone, setTone] = useState('Calm');
+  const [tone, setTone] = useState('calm');
   const [response, setResponse] = useState('');
   const [status, setStatus] = useState('');
-  const [isUploading, setIsUploading] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const acceptedTypes = [
-    'application/pdf',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    'text/plain',
-    'image/png',
-    'image/jpeg'
-  ];
+  const acceptedTypes = ['application/pdf'];
 
-  const handleUpload = async () => {
-    if (!file) return setStatus('❌ No file selected');
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const uploaded = e.target.files?.[0];
+    if (!uploaded) return;
 
-    if (!acceptedTypes.includes(file.type)) {
-      return setStatus('❌ Unsupported file type');
+    if (!acceptedTypes.includes(uploaded.type)) {
+      setStatus('❌ Only PDF files are supported.');
+      setFile(null);
+      return;
     }
 
-    setIsUploading(true);
-    setStatus('📤 Uploading file...');
+    setFile(uploaded);
+    setStatus(`📎 File ready: ${uploaded.name}`);
+  };
 
-    const formData = new FormData();
-    formData.append('file', file);
+  const handleGenerateResponse = async () => {
+    if (!question.trim()) {
+      setStatus('❌ Please enter a question.');
+      return;
+    }
+
+    setLoading(true);
+    setStatus('🤖 Generating response...');
+    setResponse('');
 
     try {
-      const res = await fetch('/api/upload', {
+      const formData = new FormData();
+      formData.append('question', question.trim());
+      formData.append('tone', tone.toLowerCase());
+      if (file) formData.append('contextFile', file); // MUST match API key
+
+      const res = await fetch('/api/generate-response', {
         method: 'POST',
         body: formData,
       });
 
       const data = await res.json();
-      setStatus(res.ok ? '✅ File uploaded successfully!' : `❌ Upload failed: ${data.error || 'Unknown error'}`);
-    } catch (err) {
-      console.error(err);
-      setStatus('❌ Upload failed. Check console.');
+
+      if (!res.ok || !data.result) {
+        throw new Error(data.error || 'AI failed to respond.');
+      }
+
+      setResponse(data.result);
+      setStatus('✅ Response ready!');
+    } catch (err: any) {
+      console.error('❌ Error during fetch:', err);
+      setStatus(`❌ ${err.message}`);
     } finally {
-      setIsUploading(false);
-    }
-  };
-
-  const handleGenerateResponse = async () => {
-    if (!question) {
-      return setStatus('❌ Please enter a question.');
-    }
-
-    setIsGenerating(true);
-    setStatus('🤖 Generating response...');
-    setResponse('');
-
-    try {
-      const res = await fetch('/api/respond', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question, tone }),
-      });
-
-      const data = await res.json();
-      setStatus(res.ok ? '' : `❌ Error: ${data.error || 'Something went wrong'}`);
-      setResponse(data.answer || '[No response returned]');
-    } catch (err) {
-      console.error(err);
-      setStatus('❌ Request failed.');
-    } finally {
-      setIsGenerating(false);
+      setLoading(false);
     }
   };
 
@@ -80,8 +68,10 @@ export default function UploadPage() {
       <h1 className="text-2xl font-bold mb-2">MyCustodyCoach</h1>
       <p className="text-gray-500 mb-4">Your AI Assistant for Custody Clarity</p>
 
-      <label className="block mb-1 font-medium">Court Question</label>
+      <label htmlFor="question" className="block mb-1 font-medium">Court Question</label>
       <textarea
+        id="question"
+        name="question"
         className="w-full border border-gray-300 rounded p-2 mb-4"
         rows={4}
         placeholder="Paste your court question here..."
@@ -89,39 +79,36 @@ export default function UploadPage() {
         onChange={(e) => setQuestion(e.target.value)}
       />
 
-      <label className="block mb-1 font-medium">Tone</label>
+      <label htmlFor="tone" className="block mb-1 font-medium">Tone</label>
       <select
+        id="tone"
+        name="tone"
         className="w-full border border-gray-300 rounded p-2 mb-4"
         value={tone}
         onChange={(e) => setTone(e.target.value)}
       >
-        <option>Calm</option>
-        <option>Assertive</option>
-        <option>Factual</option>
-        <option>Reassuring</option>
+        <option value="calm">Calm</option>
+        <option value="assertive">Assertive</option>
+        <option value="factual">Factual</option>
+        <option value="reassuring">Reassuring</option>
       </select>
 
-      <label className="block mb-1 font-medium">Upload Context (Optional)</label>
+      <label htmlFor="contextFile" className="block mb-1 font-medium">Upload PDF (Optional)</label>
       <input
+        id="contextFile"
+        name="contextFile"
         type="file"
-        accept=".pdf,.docx,.txt,.png,.jpg"
+        accept=".pdf"
         className="mb-2"
-        onChange={(e) => setFile(e.target.files?.[0] || null)}
+        onChange={handleFileChange}
       />
-      <button
-        onClick={handleUpload}
-        className="bg-gray-700 text-white px-4 py-2 rounded hover:bg-gray-800 w-full mb-4 disabled:opacity-50"
-        disabled={isUploading}
-      >
-        {isUploading ? 'Uploading...' : 'Upload File'}
-      </button>
 
       <button
         onClick={handleGenerateResponse}
         className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 w-full disabled:opacity-50"
-        disabled={isGenerating}
+        disabled={loading}
       >
-        {isGenerating ? 'Generating...' : 'Generate Response'}
+        {loading ? 'Generating...' : 'Generate Response'}
       </button>
 
       {status && (

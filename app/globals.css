@@ -2,15 +2,29 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Optional: custom global styles */
+/* -------------------------------------------
+   ✅ Base global styles
+-------------------------------------------- */
 
 body {
   @apply bg-white text-gray-900 antialiased;
 }
 
+/* Remove focus ring outline for all inputs unless overridden manually */
 input,
 button,
 textarea,
 select {
   @apply focus:outline-none;
 }
+
+/* -------------------------------------------
+   ✅ Optional custom styling here
+   - Add branding, animations, fonts, etc.
+-------------------------------------------- */
+
+/* Example:
+a {
+  @apply text-blue-600 hover:underline;
+}
+*/

@@ -1,78 +1,104 @@
-import { type NextAuthOptions } from "next-auth";
+import { AuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-import { prisma } from "@/lib/prisma";
-import bcrypt from "bcryptjs";
+import { PrismaClient } from "@prisma/client";
+import bcrypt from "bcrypt";
 
-// Safe export wrapper for runtime errors
-let exportedAuthOptions: NextAuthOptions;
+const prisma = new PrismaClient();
 
-try {
-  exportedAuthOptions = {
-    providers: [
-      CredentialsProvider({
-        name: "Credentials",
-        credentials: {
-          email: { label: "Email", type: "text" },
-          password: { label: "Password", type: "password" },
-        },
-        async authorize(credentials) {
-          console.log("🟡 authorize() called with:", credentials);
-
-          if (!credentials?.email || !credentials?.password) {
-            console.log("❌ Missing email or password");
-            return null;
-          }
-
-          const user = await prisma.user.findUnique({
-            where: { email: credentials.email },
-          });
-
-          if (!user) {
-            console.log("❌ No user found for:", credentials.email);
-            return null;
-          }
-
-          if (!user.password) {
-            console.log("❌ User has no password set");
-            return null;
-          }
-
-          const isValid = await bcrypt.compare(credentials.password, user.password);
-          console.log("✅ Password valid?", isValid);
-
-          return isValid ? user : null;
-        },
-      }),
-    ],
-
-    session: {
-      strategy: "jwt",
-    },
-
-    pages: {
-      signIn: "/auth/signin",
-    },
-
-    callbacks: {
-      async session({ session, token }) {
-        if (session.user && token.sub) {
-          session.user.id = token.sub;
-        }
-        return session;
+export const authOptions: AuthOptions = {
+  providers: [
+    CredentialsProvider({
+      name: "Credentials",
+      credentials: {
+        email: { label: "Email", type: "text" },
+        password: { label: "Password", type: "password" },
       },
-      async jwt({ token, user }) {
-        if (user) {
-          token.sub = user.id;
+      async authorize(credentials) {
+        console.log("🔐 Authorize called with:", credentials);
+
+        if (!credentials?.email || !credentials?.password) {
+          console.warn("❌ Missing email or password");
+          return null;
         }
-        return token;
+
+        const user = await prisma.user.findUnique({
+          where: { email: credentials.email },
+        });
+
+        if (!user || !user.password) {
+          console.warn("❌ User not found or missing password");
+          return null;
+        }
+
+        const isValid = await bcrypt.compare(credentials.password, user.password);
+        if (!isValid) {
+          console.warn("❌ Invalid password for:", credentials.email);
+          return null;
+        }
+
+        console.log("✅ Auth successful:", {
+          id: user.id,
+          email: user.email,
+          firstName: user.firstName,
+          state: user.state,
+        });
+
+        return {
+          id: user.id,
+          email: user.email,
+          firstName: user.firstName ?? "",
+          state: user.state ?? "",
+        };
       },
+    }),
+  ],
+
+  // ✅ Custom pages
+  pages: {
+    signIn: "/auth/signin",
+    error: "/auth/error",
+    newUser: "/", // Redirect new users after signup (optional)
+  },
+
+  session: {
+    strategy: "jwt",
+  },
+
+  callbacks: {
+    async jwt({ token, user }) {
+      if (user) {
+        const u = user as {
+          id: string;
+          email: string;
+          firstName?: string;
+          state?: string;
+        };
+
+        token.id = u.id;
+        token.email = u.email;
+        token.firstName = u.firstName ?? "";
+        token.state = u.state ?? "";
+
+        console.log("🔁 JWT callback - token enriched:", token);
+      }
+      return token;
     },
 
-    secret: process.env.NEXTAUTH_SECRET,
-  };
-} catch (err) {
-  console.error("🔥 Error while defining authOptions:", err);
-  throw err;
-}
+    async session({ session, token }) {
+      if (token && session.user) {
+        session.user = {
+          ...session.user,
+          id: token.id as string,
+          email: token.email as string,
+          firstName: token.firstName as string,
+          state: token.state as string,
+        };
 
-export const authOptions = exportedAuthOptions;
+        console.log("📦 Session created:", session);
+      }
+      return session;
+    },
+  },
+
+  secret: process.env.NEXTAUTH_SECRET,
+};
