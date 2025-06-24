@@ -1,11 +1,19 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, type FC } from 'react';
 import { pdf } from '@react-pdf/renderer';
 import { saveAs } from 'file-saver';
 import dynamic from 'next/dynamic';
 
-const PdfDocument = dynamic(() => import('@/app/components/PdfDocument'), { ssr: false });
+type PdfProps = {
+  prompt: string;
+  tone: string;
+  response: string;
+};
+
+const PdfDocument = dynamic(() => import('@/app/components/PdfDocument'), {
+  ssr: false,
+}) as FC<PdfProps>;
 
 type Props = {
   user: {
