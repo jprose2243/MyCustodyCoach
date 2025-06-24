@@ -37,23 +37,36 @@ export default function UploadPage() {
     setResponse('');
 
     try {
-      const formData = new FormData();
-      formData.append('question', question.trim());
-      formData.append('tone', tone.toLowerCase());
-      if (file) formData.append('contextFile', file); // MUST match API key
+      if (file) {
+        const uploadData = new FormData();
+        uploadData.append('file', file);
 
-      const res = await fetch('/api/generate-response', {
+        const uploadRes = await fetch('/api/upload', {
+          method: 'POST',
+          body: uploadData,
+        });
+
+        const uploadJson = await uploadRes.json();
+        if (!uploadRes.ok || !uploadJson.success) {
+          throw new Error(uploadJson.error || 'Upload failed');
+        }
+      }
+
+      const res = await fetch('/api/respond', {
         method: 'POST',
-        body: formData,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ question: question.trim(), tone: tone.toLowerCase() }),
       });
 
       const data = await res.json();
 
-      if (!res.ok || !data.result) {
+      if (!res.ok || !data.answer) {
         throw new Error(data.error || 'AI failed to respond.');
       }
 
-      setResponse(data.result);
+      setResponse(data.answer);
       setStatus('✅ Response ready!');
     } catch (err: any) {
       console.error('❌ Error during fetch:', err);
