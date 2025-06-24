@@ -1,9 +1,11 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useState, useRef } from 'react';
 import { pdf } from '@react-pdf/renderer';
 import { saveAs } from 'file-saver';
-import PdfDocument from './components/PdfDocument';
+import dynamic from 'next/dynamic';
+
+const PdfDocument = dynamic(() => import('@/app/components/PdfDocument'), { ssr: false });
 
 type Props = {
   user: {
@@ -16,13 +18,11 @@ type Props = {
 export default function UploadClient({ user }: Props) {
   const [prompt, setPrompt] = useState('');
   const [tone, setTone] = useState('calm');
-  const [file, setFile] = useState<File | null>(null);
   const [fileName, setFileName] = useState('');
+  const [file, setFile] = useState<File | null>(null);
   const [response, setResponse] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-
-  const pdfRef = useRef<HTMLDivElement>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const uploaded = e.target.files?.[0];
@@ -70,7 +70,7 @@ export default function UploadClient({ user }: Props) {
   };
 
   const handleDownloadPDF = async () => {
-    if (!response) return alert('❌ No response to export.');
+    if (!response) return alert('No response to export.');
 
     const blob = await pdf(
       <PdfDocument prompt={prompt} tone={tone} response={response} />
@@ -91,7 +91,9 @@ export default function UploadClient({ user }: Props) {
 
       <section className="w-full max-w-2xl bg-white shadow-lg rounded-lg p-6 space-y-6">
         <div>
-          <label htmlFor="prompt" className="block font-semibold mb-1">Court Question</label>
+          <label htmlFor="prompt" className="block font-semibold mb-1">
+            Court Question
+          </label>
           <textarea
             id="prompt"
             rows={5}
@@ -103,7 +105,9 @@ export default function UploadClient({ user }: Props) {
         </div>
 
         <div>
-          <label htmlFor="tone" className="block font-semibold mb-1">Tone</label>
+          <label htmlFor="tone" className="block font-semibold mb-1">
+            Tone
+          </label>
           <select
             id="tone"
             className="w-full bg-zinc-100 text-black p-2 rounded border border-zinc-300 focus:outline-blue-500"
@@ -118,7 +122,9 @@ export default function UploadClient({ user }: Props) {
         </div>
 
         <div>
-          <label htmlFor="contextFile" className="block font-semibold mb-1">Upload PDF (Optional)</label>
+          <label htmlFor="contextFile" className="block font-semibold mb-1">
+            Upload PDF (Optional)
+          </label>
           <input
             id="contextFile"
             name="contextFile"
@@ -144,17 +150,19 @@ export default function UploadClient({ user }: Props) {
       </section>
 
       {response && (
-        <section ref={pdfRef} className="bg-white text-black mt-10 p-8 w-full max-w-2xl rounded shadow">
+        <section className="bg-white text-black mt-10 p-8 w-full max-w-2xl rounded shadow">
           <h2 className="text-2xl font-bold mb-4">MyCustodyCoach Response</h2>
-          <p><strong>Date:</strong> {new Date().toLocaleDateString()}</p>
-          <p><strong>Tone:</strong> {tone}</p>
-          <p><strong>Question:</strong> {prompt}</p>
+          <p>
+            <strong>Date:</strong> {new Date().toLocaleDateString()}
+          </p>
+          <p>
+            <strong>Tone:</strong> {tone}
+          </p>
+          <p>
+            <strong>Question:</strong> {prompt}
+          </p>
           <hr className="my-4" />
-          <div className="space-y-2">
-            {response.split('\n').map((line, i) => (
-              <p key={i}>{line}</p>
-            ))}
-          </div>
+          <div className="space-y-2 whitespace-pre-wrap">{response}</div>
         </section>
       )}
 
