@@ -1,5 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { extractPdfText } from '@/utils/extractPdfText';
+import { extractPdfText } from '../../utils/extractPdfText';
 import { Configuration, OpenAIApi } from 'openai';
 import formidable, { File } from 'formidable';
 import fs from 'fs';

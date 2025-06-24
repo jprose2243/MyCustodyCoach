@@ -40,8 +40,8 @@ export async function extractPdfText(buffer: Buffer): Promise<string> {
 async function extractWithOCR(buffer: Buffer): Promise<string> {
   const worker = await createWorker();
   await worker.load();
-  await worker.loadLanguage('eng');
-  await worker.initialize('eng');
+  await (worker as any).loadLanguage('eng');
+  await (worker as any).initialize('eng');
 
   let ocrText = '';
 
@@ -54,7 +54,7 @@ async function extractWithOCR(buffer: Buffer): Promise<string> {
       const viewport = page.getViewport({ scale: 2 });
 
       const canvas = createCanvas(viewport.width, viewport.height);
-      const ctx = canvas.getContext('2d');
+      const ctx = canvas.getContext('2d') as any;
       await page.render({ canvasContext: ctx, viewport }).promise;
 
       const imageBuffer = canvas.toBuffer('image/png');

@@ -8,8 +8,8 @@ export async function parseFileContent(buffer: Buffer, mimetype: string): Promis
     let text = '';
 
     for (const page of pages) {
-      const content = page.getTextContent?.(); // may be undefined in some builds
-      if (content) text += content;
+      const content = (page as any).getTextContent?.(); // may be undefined
+      if (content) text += content as string;
     }
 
     return text || '[No text extracted from PDF]';
