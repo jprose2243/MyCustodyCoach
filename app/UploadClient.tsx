@@ -47,22 +47,36 @@ export default function UploadClient({ user }: Props) {
     setLoading(true);
 
     try {
-      const formData = new FormData();
-      formData.append('question', prompt);
-      formData.append('tone', tone);
-      if (file) formData.append('contextFile', file);
+      // Upload file first if provided
+      if (file) {
+        const uploadData = new FormData();
+        uploadData.append('file', file);
 
-      const res = await fetch('/api/generate-response', {
+        const uploadRes = await fetch('/api/upload', {
+          method: 'POST',
+          body: uploadData,
+        });
+
+        const uploadJson = await uploadRes.json();
+        if (!uploadRes.ok || !uploadJson.success) {
+          throw new Error(uploadJson.error || 'File upload failed.');
+        }
+      }
+
+      const res = await fetch('/api/respond', {
         method: 'POST',
-        body: formData,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ question: prompt, tone }),
       });
 
       const data = await res.json();
-      if (!res.ok || !data.result) {
+      if (!res.ok || !data.answer) {
         throw new Error(data.error || 'Something went wrong.');
       }
 
-      setResponse(data.result);
+      setResponse(data.answer);
     } catch (err: any) {
       console.error('⚠️ API Error:', err);
       setError(err.message || 'Unexpected error occurred.');
