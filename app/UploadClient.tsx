@@ -5,19 +5,11 @@ import { pdf } from '@react-pdf/renderer';
 import { saveAs } from 'file-saver';
 import dynamic from 'next/dynamic';
 
-const PdfDocument = dynamic(() => import('@/app/components/PdfDocument'), {
+const PdfDocument = dynamic(() => import('@/LegalCoachApp/components/PdfDocument'), {
   ssr: false,
 });
 
-type Props = {
-  user: {
-    email: string;
-    firstName: string;
-    state: string;
-  };
-};
-
-export default function UploadClient({ user }: Props) {
+export default function UploadClient() {
   const [prompt, setPrompt] = useState('');
   const [tone, setTone] = useState('calm');
   const [file, setFile] = useState<File | null>(null);
@@ -90,10 +82,6 @@ export default function UploadClient({ user }: Props) {
     <main className="min-h-screen bg-white text-gray-900 p-8 flex flex-col items-center space-y-6">
       <nav className="w-full max-w-4xl flex justify-between items-center py-4">
         <h1 className="text-3xl font-extrabold tracking-tight">MyCustodyCoach</h1>
-        <div className="text-sm text-gray-600 text-right">
-          <p>{user.firstName || user.email}</p>
-          <p className="text-xs text-gray-400">{user.state}</p>
-        </div>
       </nav>
 
       <section className="w-full max-w-2xl bg-white shadow-lg rounded-lg p-6 space-y-6">
