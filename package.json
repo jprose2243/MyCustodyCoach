@@ -9,44 +9,23 @@
     "lint": "next lint"
   },
   "dependencies": {
-<<<<<<< HEAD
-    "@auth/core": "^0.40.0",
-    "@auth/prisma-adapter": "2.9.1",
-    "@prisma/client": "5.14.0",
-=======
-
->>>>>>> 7a7ac536946d0671a9ec6644f33a789a91d55c2a
     "@react-pdf/renderer": "^4.3.0",
-    "@types/formidable": "^3.4.5",
     "canvas": "^3.1.1",
     "dotenv": "16.5.0",
     "file-saver": "^2.0.5",
     "formidable": "^3.5.4",
     "mammoth": "^1.9.1",
     "next": "15.3.3",
-<<<<<<< HEAD
-    "next-auth": "^4.24.7",
     "openai": "^5.7.0",
     "pdf-lib": "1.17.1",
     "pdfjs-dist": "^5.3.31",
-    "prisma": "5.14.0",
-=======
-
-    "openai": "^5.7.0",
-    "pdf-lib": "1.17.1",
-    "pdfjs-dist": "^3.11.174",
->>>>>>> 7a7ac536946d0671a9ec6644f33a789a91d55c2a
     "react": "19.0.0",
     "react-dom": "19.0.0",
     "tesseract.js": "^6.0.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "4.0.0",
-<<<<<<< HEAD
-    "@types/bcrypt": "^5.0.2",
-    "@types/jest": "^30.0.0",
-=======
->>>>>>> 7a7ac536946d0671a9ec6644f33a789a91d55c2a
+    "@types/formidable": "^3.4.5",
     "@types/node": "20.0.0",
     "@types/react": "19.0.0",
     "@types/react-dom": "19.0.0",
