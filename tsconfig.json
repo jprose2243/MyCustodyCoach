@@ -24,8 +24,8 @@
       "@/*": ["./*"]
     },
     "typeRoots": [
-      "app/types",             // ✅ Custom type declarations
-      "node_modules/@types"    // ✅ Standard type declarations
+      "types",
+      "node_modules/@types"
     ]
   },
   "include": [
@@ -33,7 +33,7 @@
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts",
-    "app/types/**/*.d.ts"      // ✅ Ensures file-saver.d.ts is picked up
+    "types/**/*.d.ts"
   ],
   "exclude": ["node_modules"]
 }
