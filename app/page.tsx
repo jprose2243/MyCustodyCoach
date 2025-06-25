@@ -1,5 +1,13 @@
-import UploadClient from "./UploadClient";
+'use client';
 
-export default async function HomePage() {
+import { useState } from 'react';
+import UploadClient from './UploadClient';
+
+export default function UploadPage() {
+  const [file, setFile] = useState(null);
+  const [question, setQuestion] = useState('');
+  const [tone, setTone] = useState('calm');
+  const [response, setResponse] = useState('');
+
   return <UploadClient />;
 }

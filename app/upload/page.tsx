@@ -13,7 +13,7 @@ export default function UploadPage() {
   const acceptedTypes = ['application/pdf'];
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const uploaded = e.target.files?.[0];
+    const uploaded = (e.target as HTMLInputElement)?.files?.[0];
     if (!uploaded) return;
 
     if (!acceptedTypes.includes(uploaded.type)) {
@@ -40,7 +40,7 @@ export default function UploadPage() {
       const formData = new FormData();
       formData.append('question', question.trim());
       formData.append('tone', tone.toLowerCase());
-      if (file) formData.append('contextFile', file); // MUST match API key
+      if (file) formData.append('contextFile', file);
 
       const res = await fetch('/api/generate-response', {
         method: 'POST',

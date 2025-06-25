@@ -1,1 +1,1 @@
-export { default, config } from '@/LegalCoachApp/api/generate-response';
+export { config, POST } from '@/LegalCoachApp/api/generate-response';

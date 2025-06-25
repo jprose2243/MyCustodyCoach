@@ -22,11 +22,6 @@ export default function UploadClient() {
     const uploaded = e.target.files?.[0];
     if (!uploaded) return;
 
-    if (!uploaded.type.includes('pdf')) {
-      setError('❌ Only PDF files are supported.');
-      return;
-    }
-
     setFile(uploaded);
     setFileName(uploaded.name);
     setError('');
@@ -118,13 +113,13 @@ export default function UploadClient() {
 
         <div>
           <label htmlFor="contextFile" className="block font-semibold mb-1">
-            Upload PDF (Optional)
+            Upload File (PDF, DOCX, TXT, or Image)
           </label>
           <input
             id="contextFile"
             name="contextFile"
             type="file"
-            accept=".pdf"
+            accept=".pdf,.docx,.txt,image/*"
             onChange={handleFileChange}
             className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
           />
