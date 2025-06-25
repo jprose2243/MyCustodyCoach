@@ -1,6 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { extractPdfText } from '@/utils/extractPdfText';
-import { Configuration, OpenAIApi } from 'openai';
+import OpenAI from 'openai';
 import formidable, { File } from 'formidable';
 import fs from 'fs';
 
@@ -11,18 +11,16 @@ export const config = {
   },
 };
 
-// 🔐 OpenAI Setup
-const configuration = new Configuration({
+// 🔐 OpenAI Setup for v4
+const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
-const openai = new OpenAIApi(configuration);
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // Initialize formidable parser
   const form = new formidable.IncomingForm({ keepExtensions: true });
 
   form.parse(req, async (err, fields, files) => {
@@ -39,14 +37,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     let contextText = '';
 
-    // 🧠 Try extracting PDF text
     try {
       const file = (files.contextFile?.[0] || files.contextFile) as File;
-
       if (file?.filepath) {
         const buffer = fs.readFileSync(file.filepath);
         contextText = await extractPdfText(buffer);
-
         console.log('📄 PDF extracted preview:\n', contextText.slice(0, 300));
       } else {
         console.log('📭 No file uploaded.');
@@ -55,7 +50,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       console.warn('⚠️ PDF extraction failed:', err);
     }
 
-    // 🧠 Build GPT prompt
     const fullPrompt = `
 You are a helpful legal assistant working for MyCustodyCoach.
 
@@ -69,9 +63,8 @@ ${contextText ? `---\nContext from uploaded PDF:\n${contextText}` : ''}
 
     console.log('🧠 Prompt sent to OpenAI (preview):\n', fullPrompt.slice(0, 1500));
 
-    // 🎯 Call OpenAI Chat
     try {
-      const completion = await openai.createChatCompletion({
+      const completion = await openai.chat.completions.create({
         model: 'gpt-4',
         messages: [
           {
@@ -84,7 +77,7 @@ ${contextText ? `---\nContext from uploaded PDF:\n${contextText}` : ''}
         temperature: 0.7,
       });
 
-      const answer = completion.data.choices[0]?.message?.content || 'No response returned.';
+      const answer = completion.choices[0]?.message?.content || 'No response returned.';
       return res.status(200).json({ result: answer });
     } catch (error: any) {
       console.error('🔥 OpenAI error:', error.message || error);

@@ -5,7 +5,7 @@ import type { PDFDocumentProxy } from 'pdfjs-dist/types/src/display/api';
 
 /**
  * Extracts text from a PDF buffer.
- * Tries native pdfjs-dist parsing, then falls back to OCR via Tesseract.js.
+ * Uses pdfjs first, falls back to OCR if needed.
  */
 export async function extractPdfText(buffer: Buffer): Promise<string> {
   try {
@@ -15,57 +15,43 @@ export async function extractPdfText(buffer: Buffer): Promise<string> {
 
     let fullText = '';
 
-    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-      const page = await pdf.getPage(pageNum);
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
       const content = await page.getTextContent();
       const pageText = content.items.map((item: any) => item.str).join(' ');
       fullText += `\n${pageText}`;
     }
 
     if (fullText.trim().length > 100) {
-      console.log("✅ Extracted using pdfjs-dist");
+      console.log('✅ Extracted using pdfjs-dist');
       return fullText;
     }
 
-    throw new Error('Insufficient text extracted. Falling back to OCR...');
+    throw new Error('Low confidence content, triggering OCR fallback');
   } catch (err) {
-    console.warn("⚠️ PDF.js failed, trying OCR fallback...", err);
+    console.warn('⚠️ PDF.js failed, using OCR fallback...', err);
     return await extractWithOCR(buffer);
   }
 }
 
 /**
- * Fallback OCR if pdfjs can't extract text (e.g. scanned document)
+ * OCR fallback using Tesseract.js
  */
 async function extractWithOCR(buffer: Buffer): Promise<string> {
-  const worker = await createWorker();
-  await worker.load();
-  await worker.loadLanguage('eng');
-  await worker.initialize('eng');
-
-  let ocrText = '';
+  const worker = await createWorker({
+    logger: (m: any) => console.log('🧠 OCR:', m),
+  } as any); // Type workaround
 
   try {
-    const uint8Array = new Uint8Array(buffer);
-    const pdf = await getDocument({ data: uint8Array }).promise;
+    await (worker as any).load();
+    await (worker as any).loadLanguage('eng');
+    await (worker as any).initialize('eng');
 
-    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-      const page = await pdf.getPage(pageNum);
-      const viewport = page.getViewport({ scale: 2 });
-
-      const canvas = createCanvas(viewport.width, viewport.height);
-      const ctx = canvas.getContext('2d');
-      await page.render({ canvasContext: ctx, viewport }).promise;
-
-      const imageBuffer = canvas.toBuffer('image/png');
-      const { data } = await worker.recognize(imageBuffer);
-      ocrText += `\n${data.text}`;
-    }
-
-    console.log("🧠 OCR fallback succeeded");
-    return ocrText;
+    const { data } = await worker.recognize(buffer);
+    console.log('🧠 OCR fallback succeeded');
+    return data.text;
   } catch (e) {
-    console.error("❌ OCR failed:", e);
+    console.error('❌ OCR error:', e);
     return '';
   } finally {
     await worker.terminate();

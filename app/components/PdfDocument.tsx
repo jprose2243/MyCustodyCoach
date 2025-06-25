@@ -26,9 +26,17 @@ const styles = StyleSheet.create({
   label: {
     fontWeight: 'bold',
   },
+  line: {
+    marginBottom: 4,
+  },
 });
 
 export default function PdfDocument({ prompt, tone, response }: PdfProps) {
+  const safeResponse =
+    typeof response === 'string'
+      ? response
+      : JSON.stringify(response, null, 2);
+
   return (
     <Document>
       <Page size="A4" style={styles.page}>
@@ -51,7 +59,11 @@ export default function PdfDocument({ prompt, tone, response }: PdfProps) {
 
         <View style={styles.section}>
           <Text style={styles.label}>Response:</Text>
-          <Text>{response}</Text>
+          {safeResponse.split('\n').map((line, index) => (
+            <Text key={index} style={styles.line}>
+              {line}
+            </Text>
+          ))}
         </View>
       </Page>
     </Document>
