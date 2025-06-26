@@ -1,17 +1,28 @@
-import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist/build/pdf';
-import { createWorker } from 'tesseract.js';
+import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist/legacy/build/pdf.js';
+import Tesseract from 'tesseract.js';
 import type { PDFDocumentProxy } from 'pdfjs-dist/types/src/display/api';
 
-// ✅ Load worker from CDN so it's not bundled
-GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+const MAX_CHARS = 10000;
 
+// ✅ Correct fix for Next.js: tell it exactly where to find the real worker module
+GlobalWorkerOptions.workerSrc = require('pdfjs-dist/build/pdf.worker.js');
+
+function truncate(text: string): string {
+  return text.length > MAX_CHARS ? text.slice(0, MAX_CHARS) + '\n\n...[truncated]' : text;
+}
+
+/**
+ * Extracts text from a PDF using pdfjs-dist. Falls back to OCR if too sparse or fails.
+ */
 export async function extractPdfText(buffer: Buffer): Promise<string> {
   try {
+    console.log('📥 extractPdfText called');
     const uint8Array = new Uint8Array(buffer);
     const loadingTask = getDocument({ data: uint8Array });
     const pdf: PDFDocumentProxy = await loadingTask.promise;
 
     let fullText = '';
+
     for (let i = 1; i <= pdf.numPages; i++) {
       const page = await pdf.getPage(i);
       const content = await page.getTextContent();
@@ -19,12 +30,15 @@ export async function extractPdfText(buffer: Buffer): Promise<string> {
       fullText += `\n${pageText}`;
     }
 
-    if (fullText.trim().length > 100) {
-      console.log('✅ Text extracted with pdfjs-dist');
-      return fullText.trim();
+    fullText = fullText.trim();
+
+    if (fullText.length < 100) {
+      console.warn('⚠️ PDF sparse — using OCR fallback');
+      return await extractWithOCR(buffer);
     }
 
-    throw new Error('PDF too sparse — falling back to OCR');
+    console.log('✅ Text extracted with pdfjs-dist');
+    return truncate(fullText);
   } catch (err) {
     console.warn('⚠️ PDF.js failed, falling back to OCR:', err);
     return await extractWithOCR(buffer);
@@ -32,21 +46,16 @@ export async function extractPdfText(buffer: Buffer): Promise<string> {
 }
 
 async function extractWithOCR(buffer: Buffer): Promise<string> {
-  const worker = await (createWorker as any)({
-    logger: (m: any) => console.log('🧠 OCR:', m),
-  });
-
   try {
-    await worker.load();
-    await worker.loadLanguage('eng');
-    await worker.initialize('eng');
+    console.log('🔁 OCR fallback triggered');
+    const { data } = await Tesseract.recognize(buffer, 'eng', {
+      logger: (m) => console.log('🧠 OCR:', m),
+    });
 
-    const { data } = await worker.recognize(buffer);
-    return data.text.trim();
+    console.log('✅ OCR extraction complete');
+    return truncate(data.text.trim());
   } catch (err) {
     console.error('❌ OCR failed:', err);
     return '';
-  } finally {
-    await worker.terminate();
   }
 }
