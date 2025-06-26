@@ -4,7 +4,7 @@ import type { PDFDocumentProxy } from 'pdfjs-dist/types/src/display/api';
 
 const MAX_CHARS = 10000;
 
-// ✅ Correct fix for Next.js: tell it exactly where to find the real worker module
+// ✅ Proper worker setup for Next.js
 GlobalWorkerOptions.workerSrc = require('pdfjs-dist/build/pdf.worker.js');
 
 function truncate(text: string): string {
@@ -12,7 +12,7 @@ function truncate(text: string): string {
 }
 
 /**
- * Extracts text from a PDF using pdfjs-dist. Falls back to OCR if too sparse or fails.
+ * Extracts text from a PDF using pdfjs-dist. Falls back to OCR if sparse or fails.
  */
 export async function extractPdfText(buffer: Buffer): Promise<string> {
   try {
@@ -52,8 +52,16 @@ async function extractWithOCR(buffer: Buffer): Promise<string> {
       logger: (m) => console.log('🧠 OCR:', m),
     });
 
+    console.log('🔍 OCR raw result:', data);
+
+    const extracted = data.text.trim();
+    if (!extracted) {
+      console.warn('⚠️ OCR returned empty text');
+      return '';
+    }
+
     console.log('✅ OCR extraction complete');
-    return truncate(data.text.trim());
+    return truncate(extracted);
   } catch (err) {
     console.error('❌ OCR failed:', err);
     return '';
