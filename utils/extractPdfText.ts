@@ -1,10 +1,9 @@
 import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist/legacy/build/pdf.js';
-import Tesseract from 'tesseract.js';
 import type { PDFDocumentProxy } from 'pdfjs-dist/types/src/display/api';
 
 const MAX_CHARS = 10000;
 
-// ✅ Proper worker setup for Next.js
+// ✅ Next.js/Vercel-safe worker setup
 GlobalWorkerOptions.workerSrc = require('pdfjs-dist/build/pdf.worker.js');
 
 function truncate(text: string): string {
@@ -48,11 +47,11 @@ export async function extractPdfText(buffer: Buffer): Promise<string> {
 async function extractWithOCR(buffer: Buffer): Promise<string> {
   try {
     console.log('🔁 OCR fallback triggered');
+    const Tesseract = (await import('tesseract.js')).default;
+
     const { data } = await Tesseract.recognize(buffer, 'eng', {
       logger: (m) => console.log('🧠 OCR:', m),
     });
-
-    console.log('🔍 OCR raw result:', data);
 
     const extracted = data.text.trim();
     if (!extracted) {

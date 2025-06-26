@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { pdf } from '@react-pdf/renderer';
 import { saveAs } from 'file-saver';
 import dynamic from 'next/dynamic';
@@ -17,6 +17,12 @@ export default function UploadClient() {
   const [response, setResponse] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (file) {
+      console.log('🧾 File state updated:', file.name, file.size);
+    }
+  }, [file]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const uploaded = e.target.files?.[0];
@@ -40,23 +46,24 @@ export default function UploadClient() {
   };
 
   const handleSubmit = async () => {
-    console.log('🚀 handleSubmit triggered');
-
     setError('');
     setResponse('');
     setLoading(true);
 
     try {
+      // ✅ Delay to ensure file binding is complete
+      await new Promise((res) => setTimeout(res, 150));
+
+      if (file && file.size === 0) {
+        throw new Error('⚠️ Uploaded file is empty or not fully loaded yet.');
+      }
+
       const formData = new FormData();
-      formData.append('question', prompt);
+      formData.append('question', prompt.trim());
       formData.append('tone', tone);
       if (file) formData.append('contextFile', file);
 
-      console.log('📤 Sending FormData to /api/generate-response:', {
-        question: prompt,
-        tone,
-        fileName: file?.name,
-      });
+      console.log('📤 Submitting:', { prompt, tone, fileName: file?.name });
 
       const res = await fetch('/api/generate-response', {
         method: 'POST',
@@ -64,15 +71,21 @@ export default function UploadClient() {
       });
 
       const data = await res.json();
-      console.log('✅ Received from server:', data);
+      console.log('✅ Server response:', data);
 
-      if (!res.ok || !data.result) {
-        throw new Error(data.error || 'Something went wrong.');
+      if (
+        !res.ok ||
+        !data.result ||
+        typeof data.result !== 'string' ||
+        data.result.trim().length < 10
+      ) {
+        console.warn('⚠️ No valid response:', data);
+        throw new Error('No meaningful response received. Try rephrasing your question or re-uploading.');
       }
 
-      setResponse(data.result);
+      setResponse(data.result.trim());
     } catch (err: any) {
-      console.error('⚠️ API Error:', err);
+      console.error('❌ Submission error:', err);
       setError(err.message || 'Unexpected error occurred.');
     } finally {
       setLoading(false);
@@ -95,34 +108,36 @@ export default function UploadClient() {
   };
 
   return (
-    <main className="min-h-screen bg-white text-gray-900 flex items-center justify-center">
-      <div className="flex flex-col items-center space-y-6 w-full max-w-3xl px-4">
-        <nav className="w-full flex justify-between items-center py-4">
-          <h1 className="text-3xl font-extrabold tracking-tight">MyCustodyCoach</h1>
+    <main className="min-h-screen bg-blue-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 flex items-center justify-center px-4">
+      <div className="w-full max-w-3xl space-y-6 py-10 font-sans">
+        <nav className="flex justify-center">
+          <h1 className="text-4xl font-extrabold tracking-tight text-indigo-600 dark:text-indigo-400">
+            MyCustodyCoach
+          </h1>
         </nav>
 
-        <section className="w-full max-w-2xl bg-white shadow-lg rounded-lg p-6 space-y-6">
+        <section className="bg-white dark:bg-gray-800 shadow-md rounded-2xl p-6 space-y-6 ring-1 ring-gray-200 dark:ring-gray-700">
           <div>
-            <label htmlFor="prompt" className="block font-semibold mb-1">
+            <label htmlFor="prompt" className="block text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300 mb-1">
               Court Question
             </label>
             <textarea
               id="prompt"
               rows={5}
               placeholder="Paste your court question here..."
-              className="w-full bg-zinc-100 text-black p-4 rounded border border-zinc-300 focus:outline-blue-500"
+              className="w-full p-4 text-lg leading-relaxed bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-indigo-500 transition-all"
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
             />
           </div>
 
           <div>
-            <label htmlFor="tone" className="block font-semibold mb-1">
+            <label htmlFor="tone" className="block text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300 mb-1">
               Tone
             </label>
             <select
               id="tone"
-              className="w-full bg-zinc-100 text-black p-2 rounded border border-zinc-300 focus:outline-blue-500"
+              className="w-full p-3 text-lg bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-indigo-500 transition-all"
               value={tone}
               onChange={(e) => setTone(e.target.value)}
             >
@@ -134,7 +149,7 @@ export default function UploadClient() {
           </div>
 
           <div>
-            <label htmlFor="contextFile" className="block font-semibold mb-1">
+            <label htmlFor="contextFile" className="block text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300 mb-1">
               Upload File (PDF, DOCX, TXT, or Image)
             </label>
             <input
@@ -143,10 +158,10 @@ export default function UploadClient() {
               type="file"
               accept=".pdf,.docx,.txt,image/*"
               onChange={handleFileChange}
-              className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+              className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 transition-all"
             />
             {fileName && (
-              <p className="mt-2 text-sm text-gray-500">📁 File loaded: {fileName}</p>
+              <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">📁 File loaded: {fileName}</p>
             )}
           </div>
 
@@ -154,42 +169,40 @@ export default function UploadClient() {
             type="button"
             onClick={handleSubmit}
             disabled={loading}
-            className={`w-full font-semibold py-2 px-6 rounded ${
+            className={`w-full py-3 px-6 text-lg font-semibold rounded-xl transition-all duration-200 focus:outline-none active:scale-95 ${
               loading
-                ? 'bg-blue-300 cursor-not-allowed'
-                : 'bg-blue-600 hover:bg-blue-700 text-white'
+                ? 'bg-indigo-300 cursor-not-allowed'
+                : 'bg-indigo-500 hover:bg-indigo-600 text-white shadow-md hover:shadow-lg'
             }`}
           >
             {loading ? 'Generating...' : 'Generate Response'}
           </button>
 
-          {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
+          {error && (
+            <p className="bg-yellow-50 text-red-700 border border-yellow-300 rounded-md px-4 py-2 text-sm mt-2">
+              {error}
+            </p>
+          )}
         </section>
 
-        {response && (
-          <>
-            <section className="bg-white text-black mt-10 p-8 w-full max-w-2xl rounded shadow">
-              <h2 className="text-2xl font-bold mb-4">MyCustodyCoach Response</h2>
-              <p>
-                <strong>Date:</strong> {new Date().toLocaleDateString()}
-              </p>
-              <p>
-                <strong>Tone:</strong> {tone}
-              </p>
-              <p>
-                <strong>Question:</strong> {prompt}
-              </p>
-              <hr className="my-4" />
-              <div className="whitespace-pre-wrap space-y-2">{response}</div>
-            </section>
+        {response && response.length > 10 && (
+          <section className="bg-green-100 dark:bg-gray-800 text-gray-800 dark:text-gray-100 p-6 rounded-2xl shadow-md space-y-4">
+            <h2 className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
+              MyCustodyCoach Response
+            </h2>
+            <p><strong>Date:</strong> {new Date().toLocaleDateString()}</p>
+            <p><strong>Tone:</strong> {tone}</p>
+            <p><strong>Question:</strong> {prompt}</p>
+            <hr className="border-t border-gray-300 dark:border-gray-600" />
+            <div className="whitespace-pre-wrap text-base leading-relaxed">{response}</div>
 
             <button
               onClick={handleDownloadPDF}
-              className="bg-green-600 hover:bg-green-700 text-white mt-6 py-2 px-6 rounded"
+              className="bg-green-600 hover:bg-green-700 text-white mt-4 py-2 px-6 rounded-xl transition-all duration-200 shadow-md hover:shadow-lg active:scale-95"
             >
               Download PDF
             </button>
-          </>
+          </section>
         )}
       </div>
     </main>
