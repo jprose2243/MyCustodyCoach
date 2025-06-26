@@ -95,9 +95,9 @@ export default function UploadClient() {
   };
 
   return (
-    <main className="min-h-screen bg-white text-gray-900 p-8 flex items-center justify-center">
-      <div className="flex flex-col items-center space-y-6 w-full">
-        <nav className="w-full max-w-4xl flex justify-between items-center py-4">
+    <main className="min-h-screen bg-white text-gray-900 flex items-center justify-center">
+      <div className="flex flex-col items-center space-y-6 w-full max-w-3xl px-4">
+        <nav className="w-full flex justify-between items-center py-4">
           <h1 className="text-3xl font-extrabold tracking-tight">MyCustodyCoach</h1>
         </nav>
 
