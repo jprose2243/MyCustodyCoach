@@ -1,8 +1,8 @@
-import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist/legacy/build/pdf.js';
+import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist/build/pdf';
 import { createWorker } from 'tesseract.js';
 import type { PDFDocumentProxy } from 'pdfjs-dist/types/src/display/api';
 
-// ✅ Set worker for remote environments like Vercel
+// ✅ Load worker from CDN so it's not bundled
 GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
 
 export async function extractPdfText(buffer: Buffer): Promise<string> {
