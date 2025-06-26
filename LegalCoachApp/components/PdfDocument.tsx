@@ -1,6 +1,5 @@
-'use client';
-
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
+import type { FC } from 'react';
 
 export type PdfProps = {
   prompt: string;
@@ -10,62 +9,49 @@ export type PdfProps = {
 
 const styles = StyleSheet.create({
   page: {
-    padding: 40,
+    padding: 30,
     fontSize: 12,
     fontFamily: 'Helvetica',
-    lineHeight: 1.6,
-  },
-  title: {
-    fontSize: 18,
-    marginBottom: 10,
-    fontWeight: 'bold',
+    lineHeight: 1.5,
   },
   section: {
     marginBottom: 12,
   },
+  heading: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
   label: {
     fontWeight: 'bold',
   },
-  line: {
-    marginBottom: 4,
-  },
 });
 
-export default function PdfDocument({ prompt, tone, response }: PdfProps) {
-  const safeResponse =
-    typeof response === 'string'
-      ? response
-      : JSON.stringify(response, null, 2);
+const PdfDocument: FC<PdfProps> = ({ prompt, tone, response }) => (
+  <Document>
+    <Page size="A4" style={styles.page}>
+      <View style={styles.section}>
+        <Text style={styles.heading}>MyCustodyCoach Response</Text>
+      </View>
 
-  return (
-    <Document>
-      <Page size="A4" style={styles.page}>
-        <Text style={styles.title}>MyCustodyCoach Response</Text>
+      <View style={styles.section}>
+        <Text>
+          <Text style={styles.label}>Date:</Text> {new Date().toLocaleDateString()}
+        </Text>
+        <Text>
+          <Text style={styles.label}>Tone:</Text> {tone}
+        </Text>
+        <Text>
+          <Text style={styles.label}>Question:</Text> {prompt}
+        </Text>
+      </View>
 
-        <View style={styles.section}>
-          <Text>
-            <Text style={styles.label}>Date: </Text>
-            {new Date().toLocaleDateString()}
-          </Text>
-          <Text>
-            <Text style={styles.label}>Tone: </Text>
-            {tone}
-          </Text>
-          <Text>
-            <Text style={styles.label}>Question: </Text>
-            {prompt}
-          </Text>
-        </View>
+      <View style={styles.section}>
+        <Text style={styles.label}>Response:</Text>
+        <Text>{response}</Text>
+      </View>
+    </Page>
+  </Document>
+);
 
-        <View style={styles.section}>
-          <Text style={styles.label}>Response:</Text>
-          {safeResponse.split('\n').map((line, index) => (
-            <Text key={index} style={styles.line}>
-              {line}
-            </Text>
-          ))}
-        </View>
-      </Page>
-    </Document>
-  );
-}
+export default PdfDocument;

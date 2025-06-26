@@ -1,10 +1,7 @@
 {
   "compilerOptions": {
     "target": "esnext",
-    "lib": [
-      "dom",
-      "esnext"
-    ],
+    "lib": ["dom", "esnext"],
     "module": "esnext",
     "moduleResolution": "bundler",
     "strict": true,
@@ -19,10 +16,10 @@
     "skipLibCheck": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": [
-        "./*"
-      ]
+      "@/*": ["./*"]
     },
+    "typeRoots": ["types", "node_modules/@types"],
+    "types": ["node"],
     "plugins": [
       {
         "name": "next"
@@ -38,10 +35,5 @@
   "exclude": [
     "node_modules",
     "prisma"
-  ],
-  "plugins": [
-    {
-      "name": "next"
-    }
   ]
 }

@@ -5,7 +5,7 @@ import { pdf } from '@react-pdf/renderer';
 import { saveAs } from 'file-saver';
 import dynamic from 'next/dynamic';
 
-const PdfDocument = dynamic(() => import('@/LegalCoachApp/components/PdfDocument'), {
+const PdfDocument = dynamic(() => import('../LegalCoachApp/components/PdfDocument'), {
   ssr: false,
 });
 
@@ -21,6 +21,17 @@ export default function UploadClient() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const uploaded = e.target.files?.[0];
     if (!uploaded) return;
+
+    const validTypes = [
+      'application/pdf',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'text/plain',
+    ];
+    const isValid = validTypes.includes(uploaded.type) || uploaded.type.startsWith('image/');
+    if (!isValid) {
+      setError('❌ Invalid file type. Upload a PDF, DOCX, TXT, or image.');
+      return;
+    }
 
     setFile(uploaded);
     setFileName(uploaded.name);
@@ -131,7 +142,11 @@ export default function UploadClient() {
         <button
           onClick={handleSubmit}
           disabled={loading}
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded"
+          className={`w-full font-semibold py-2 px-6 rounded ${
+            loading
+              ? 'bg-blue-300 cursor-not-allowed'
+              : 'bg-blue-600 hover:bg-blue-700 text-white'
+          }`}
         >
           {loading ? 'Generating...' : 'Generate Response'}
         </button>
@@ -140,29 +155,29 @@ export default function UploadClient() {
       </section>
 
       {response && (
-        <section className="bg-white text-black mt-10 p-8 w-full max-w-2xl rounded shadow">
-          <h2 className="text-2xl font-bold mb-4">MyCustodyCoach Response</h2>
-          <p>
-            <strong>Date:</strong> {new Date().toLocaleDateString()}
-          </p>
-          <p>
-            <strong>Tone:</strong> {tone}
-          </p>
-          <p>
-            <strong>Question:</strong> {prompt}
-          </p>
-          <hr className="my-4" />
-          <div className="whitespace-pre-wrap space-y-2">{response}</div>
-        </section>
-      )}
+        <>
+          <section className="bg-white text-black mt-10 p-8 w-full max-w-2xl rounded shadow">
+            <h2 className="text-2xl font-bold mb-4">MyCustodyCoach Response</h2>
+            <p>
+              <strong>Date:</strong> {new Date().toLocaleDateString()}
+            </p>
+            <p>
+              <strong>Tone:</strong> {tone}
+            </p>
+            <p>
+              <strong>Question:</strong> {prompt}
+            </p>
+            <hr className="my-4" />
+            <div className="whitespace-pre-wrap space-y-2">{response}</div>
+          </section>
 
-      {response && (
-        <button
-          onClick={handleDownloadPDF}
-          className="bg-green-600 hover:bg-green-700 text-white mt-6 py-2 px-6 rounded"
-        >
-          Download PDF
-        </button>
+          <button
+            onClick={handleDownloadPDF}
+            className="bg-green-600 hover:bg-green-700 text-white mt-6 py-2 px-6 rounded"
+          >
+            Download PDF
+          </button>
+        </>
       )}
     </main>
   );
