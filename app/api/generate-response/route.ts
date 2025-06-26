@@ -36,11 +36,12 @@ async function parseFormDataFromNextRequest(req: NextRequest): Promise<{ fields:
   const blob = await req.blob();
   const bodyBuffer = Buffer.from(await blob.arrayBuffer());
 
-  const mockReq: Partial<IncomingMessage> = Readable.from(bodyBuffer);
-  mockReq.headers = {
+  const mockReq = Object.assign(Readable.from(bodyBuffer), {
+  headers: {
     'content-type': contentType,
     'content-length': contentLength,
-  };
+  },
+}) as unknown as IncomingMessage;
 
   const form = formidable({
     maxFileSize: MAX_FILE_SIZE_MB * 1024 * 1024,
