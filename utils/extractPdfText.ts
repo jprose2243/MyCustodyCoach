@@ -2,8 +2,8 @@ import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist';
 import { createWorker } from 'tesseract.js';
 import type { PDFDocumentProxy } from 'pdfjs-dist/types/src/display/api';
 
-// Set the path to the worker for server-side environments
-GlobalWorkerOptions.workerSrc = require('pdfjs-dist/build/pdf.worker.min.js');
+// ✅ Set worker for remote environments like Vercel
+GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
 
 export async function extractPdfText(buffer: Buffer): Promise<string> {
   try {
@@ -12,7 +12,6 @@ export async function extractPdfText(buffer: Buffer): Promise<string> {
     const pdf: PDFDocumentProxy = await loadingTask.promise;
 
     let fullText = '';
-
     for (let i = 1; i <= pdf.numPages; i++) {
       const page = await pdf.getPage(i);
       const content = await page.getTextContent();
