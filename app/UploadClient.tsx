@@ -40,6 +40,8 @@ export default function UploadClient() {
   };
 
   const handleSubmit = async () => {
+    console.log('🚀 handleSubmit triggered');
+
     setError('');
     setResponse('');
     setLoading(true);
@@ -50,12 +52,20 @@ export default function UploadClient() {
       formData.append('tone', tone);
       if (file) formData.append('contextFile', file);
 
+      console.log('📤 Sending FormData to /api/generate-response:', {
+        question: prompt,
+        tone,
+        fileName: file?.name,
+      });
+
       const res = await fetch('/api/generate-response', {
         method: 'POST',
         body: formData,
       });
 
       const data = await res.json();
+      console.log('✅ Received from server:', data);
+
       if (!res.ok || !data.result) {
         throw new Error(data.error || 'Something went wrong.');
       }
@@ -140,6 +150,7 @@ export default function UploadClient() {
         </div>
 
         <button
+          type="button"
           onClick={handleSubmit}
           disabled={loading}
           className={`w-full font-semibold py-2 px-6 rounded ${

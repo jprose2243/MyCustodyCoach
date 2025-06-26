@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Readable } from 'stream';
+import type { IncomingMessage } from 'http';
 import formidable, { File } from 'formidable';
-import fs from 'fs';
+import * as fs from 'fs/promises';
 import OpenAI from 'openai';
-import { extractPdfText } from '@/utils/extractPdfText';
+import { extractTextFromFile } from '@/utils/extractTextFromFile';
 
 export const config = {
   api: {
@@ -16,6 +17,7 @@ const openai = new OpenAI({
 });
 
 const MAX_FILE_SIZE_MB = 10;
+const MAX_CONTEXT_CHARS = 10000;
 const ALLOWED_MIME_TYPES = [
   'application/pdf',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -25,7 +27,7 @@ const ALLOWED_MIME_TYPES = [
 ];
 
 /**
- * Parses a NextRequest into fields and files using formidable
+ * Parses a Next.js Request into form fields and uploaded files using formidable.
  */
 async function parseFormDataFromNextRequest(req: NextRequest): Promise<{ fields: any; files: any }> {
   const contentType = req.headers.get('content-type') || '';
@@ -47,8 +49,15 @@ async function parseFormDataFromNextRequest(req: NextRequest): Promise<{ fields:
 
   return new Promise((resolve, reject) => {
     form.parse(mockReq as any, (err, fields, files) => {
-      if (err) reject(err);
-      else resolve({ fields, files });
+      if (err) {
+        if (err.message?.includes('maxFileSize exceeded')) {
+          reject(new Error('❌ File exceeds 10MB limit.'));
+        } else {
+          reject(err);
+        }
+      } else {
+        resolve({ fields, files });
+      }
     });
   });
 }
@@ -65,15 +74,29 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: '❌ Question is required.' }, { status: 400 });
     }
 
+    console.log('📝 User prompt:', question);
+    console.log('📎 File attached:', !!file ? file.originalFilename : 'None');
+
     let context = '';
+
     if (file) {
       const type = file.mimetype || '';
       if (!ALLOWED_MIME_TYPES.includes(type)) {
         return NextResponse.json({ error: '❌ Unsupported file type.' }, { status: 415 });
       }
 
-      const buffer = fs.readFileSync(file.filepath);
-      context = await extractPdfText(buffer);
+      if (!file.filepath) {
+        return NextResponse.json({ error: '❌ Uploaded file is missing.' }, { status: 422 });
+      }
+
+      const buffer = await fs.readFile(file.filepath);
+      context = await extractTextFromFile(buffer, type);
+
+      if (context.length > MAX_CONTEXT_CHARS) {
+        context = context.slice(0, MAX_CONTEXT_CHARS) + '\n\n...[truncated]';
+      }
+
+      console.log('📄 Extracted context length:', context.length);
     }
 
     const prompt = `
@@ -103,7 +126,10 @@ ${context ? `Context from uploaded file:\n${context}` : ''}
     const result = completion.choices[0]?.message?.content || 'No response generated.';
     return NextResponse.json({ result });
   } catch (err: any) {
-    console.error('❌ Error in /api/test:', err);
-    return NextResponse.json({ error: err.message || 'Internal server error.' }, { status: 500 });
+    console.error('❌ Error in POST /api/generate-response:', err);
+    return NextResponse.json(
+      { error: err.message || 'Internal server error.' },
+      { status: 500 }
+    );
   }
 }
