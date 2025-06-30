@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Readable } from 'stream';
 import type { IncomingMessage } from 'http';
-import formidable, { File } from 'formidable';
+import formidable from 'formidable';
 import * as fs from 'fs/promises';
 import OpenAI from 'openai';
+import { supabase } from '@/lib/supabase';
 import { extractTextFromFile } from '@/utils/extractTextFromFile';
 
 export const config = {
@@ -13,10 +14,10 @@ export const config = {
 };
 
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+  apiKey: process.env.OPENAI_API_KEY!,
 });
 
-const MAX_FILE_SIZE_MB = 10;
+const MAX_FILE_SIZE_MB = 500;
 const MAX_CONTEXT_CHARS = 10000;
 const ALLOWED_MIME_TYPES = [
   'application/pdf',
@@ -26,22 +27,18 @@ const ALLOWED_MIME_TYPES = [
   'image/jpeg',
 ];
 
-/**
- * Parses a Next.js Request into form fields and uploaded files using formidable.
- */
-async function parseFormDataFromNextRequest(req: NextRequest): Promise<{ fields: any; files: any }> {
+async function parseFormDataFromNextRequest(req: NextRequest): Promise<{ fields: any }> {
   const contentType = req.headers.get('content-type') || '';
   const contentLength = req.headers.get('content-length') || '';
-
   const blob = await req.blob();
   const bodyBuffer = Buffer.from(await blob.arrayBuffer());
 
   const mockReq = Object.assign(Readable.from(bodyBuffer), {
-  headers: {
-    'content-type': contentType,
-    'content-length': contentLength,
-  },
-}) as unknown as IncomingMessage;
+    headers: {
+      'content-type': contentType,
+      'content-length': contentLength,
+    },
+  }) as unknown as IncomingMessage;
 
   const form = formidable({
     maxFileSize: MAX_FILE_SIZE_MB * 1024 * 1024,
@@ -49,50 +46,60 @@ async function parseFormDataFromNextRequest(req: NextRequest): Promise<{ fields:
   });
 
   return new Promise((resolve, reject) => {
-    form.parse(mockReq as any, (err, fields, files) => {
-      if (err) {
-        if (err.message?.includes('maxFileSize exceeded')) {
-          reject(new Error('❌ File exceeds 10MB limit.'));
-        } else {
-          reject(err);
-        }
-      } else {
-        resolve({ fields, files });
-      }
+    form.parse(mockReq, (err, fields) => {
+      if (err) reject(err);
+      else resolve({ fields });
     });
   });
 }
 
 export async function POST(req: NextRequest) {
   try {
-    const { fields, files } = await parseFormDataFromNextRequest(req);
+    const { fields } = await parseFormDataFromNextRequest(req);
 
     const question = (fields?.question?.[0] || '').trim();
     const tone = (fields?.tone?.[0] || 'calm').trim().toLowerCase();
-    const file = files?.contextFile?.[0] as File | undefined;
+    const fileUrl = (fields?.fileUrl?.[0] || '').trim();
+    const userId = (fields?.userId?.[0] || 'demo-user-001').trim(); // replace with auth.uid() later
 
     if (!question) {
       return NextResponse.json({ error: '❌ Question is required.' }, { status: 400 });
     }
 
     console.log('📝 User prompt:', question);
-    console.log('📎 File attached:', !!file ? file.originalFilename : 'None');
+    console.log('🌐 File URL:', fileUrl || 'None');
 
     let context = '';
+    let fileName = '';
 
-    if (file) {
-      const type = file.mimetype || '';
-      if (!ALLOWED_MIME_TYPES.includes(type)) {
+    if (fileUrl) {
+      const parts = fileUrl.split('/object/public/');
+      if (parts.length < 2) {
+        return NextResponse.json({ error: '❌ Invalid file URL provided.' }, { status: 400 });
+      }
+
+      const [bucketName, ...pathParts] = parts[1].split('/');
+      const filePath = pathParts.join('/');
+      fileName = decodeURIComponent(pathParts[pathParts.length - 1]);
+
+      const { data: signedUrlData, error } = await supabase.storage
+        .from(bucketName)
+        .createSignedUrl(filePath, 60);
+
+      if (error || !signedUrlData?.signedUrl) {
+        console.error('❌ Failed to fetch signed Supabase file:', error);
+        return NextResponse.json({ error: '❌ Failed to fetch file from Supabase.' }, { status: 500 });
+      }
+
+      const fileRes = await fetch(signedUrlData.signedUrl);
+      const fileBuffer = Buffer.from(await fileRes.arrayBuffer());
+      const mimeType = fileRes.headers.get('content-type') || 'application/octet-stream';
+
+      if (!ALLOWED_MIME_TYPES.includes(mimeType)) {
         return NextResponse.json({ error: '❌ Unsupported file type.' }, { status: 415 });
       }
 
-      if (!file.filepath) {
-        return NextResponse.json({ error: '❌ Uploaded file is missing.' }, { status: 422 });
-      }
-
-      const buffer = await fs.readFile(file.filepath);
-      context = await extractTextFromFile(buffer, type);
-
+      context = await extractTextFromFile(fileBuffer, mimeType);
       if (context.length > MAX_CONTEXT_CHARS) {
         context = context.slice(0, MAX_CONTEXT_CHARS) + '\n\n...[truncated]';
       }
@@ -100,7 +107,7 @@ export async function POST(req: NextRequest) {
       console.log('📄 Extracted context length:', context.length);
     }
 
-    const prompt = `
+    const aiPrompt = `
 You are a calm, professional legal assistant working for MyCustodyCoach.
 The user asked: "${question}"
 Tone: "${tone}"
@@ -119,12 +126,30 @@ ${context ? `Context from uploaded file:\n${context}` : ''}
         },
         {
           role: 'user',
-          content: prompt,
+          content: aiPrompt,
         },
       ],
     });
 
-    const result = completion.choices[0]?.message?.content || 'No response generated.';
+    const result = completion.choices[0]?.message?.content?.trim() || 'No response generated.';
+    console.log('✅ AI response:', result.slice(0, 120));
+
+    // ✅ Save session to Supabase
+    const { error: insertError } = await supabase.from('sessions').insert([
+      {
+        user_id: userId,
+        question,
+        tone,
+        file_name: fileName || null,
+        file_url: fileUrl || null,
+        response: result,
+      },
+    ]);
+
+    if (insertError) {
+      console.warn('⚠️ Failed to log session to Supabase:', insertError.message);
+    }
+
     return NextResponse.json({ result });
   } catch (err: any) {
     console.error('❌ Error in POST /api/generate-response:', err);

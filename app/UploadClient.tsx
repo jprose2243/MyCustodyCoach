@@ -1,13 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { pdf } from '@react-pdf/renderer';
-import { saveAs } from 'file-saver';
-import dynamic from 'next/dynamic';
-
-const PdfDocument = dynamic(() => import('../LegalCoachApp/components/PdfDocument'), {
-  ssr: false,
-});
 
 export default function UploadClient() {
   const [prompt, setPrompt] = useState('');
@@ -17,6 +10,8 @@ export default function UploadClient() {
   const [response, setResponse] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const userId = 'demo-user-001'; // Replace later with real auth user ID
 
   useEffect(() => {
     if (file) {
@@ -45,25 +40,49 @@ export default function UploadClient() {
     console.log('📂 File selected:', uploaded.name);
   };
 
+  const uploadToSupabase = async (file: File): Promise<string> => {
+    const sanitizedName = file.name.replace(/\s+/g, '-');
+    const renamedFile = new File([file], sanitizedName, { type: file.type });
+
+    const formData = new FormData();
+    formData.append('file', renamedFile);
+    formData.append('userId', userId);
+
+    const res = await fetch('/api/upload-to-supabase', {
+      method: 'POST',
+      body: formData,
+    });
+
+    const data = await res.json();
+    if (!res.ok || !data?.url) {
+      console.error('❌ Supabase upload failed:', data);
+      throw new Error('File upload failed.');
+    }
+
+    console.log('✅ Uploaded to Supabase:', data.url);
+    return encodeURI(data.url);
+  };
+
   const handleSubmit = async () => {
     setError('');
     setResponse('');
     setLoading(true);
 
     try {
-      // ✅ Delay to ensure file binding is complete
       await new Promise((res) => setTimeout(res, 150));
-
       if (file && file.size === 0) {
         throw new Error('⚠️ Uploaded file is empty or not fully loaded yet.');
+      }
+
+      let uploadedFileUrl = '';
+      if (file) {
+        uploadedFileUrl = await uploadToSupabase(file);
       }
 
       const formData = new FormData();
       formData.append('question', prompt.trim());
       formData.append('tone', tone);
-      if (file) formData.append('contextFile', file);
-
-      console.log('📤 Submitting:', { prompt, tone, fileName: file?.name });
+      formData.append('fileUrl', uploadedFileUrl);
 
       const res = await fetch('/api/generate-response', {
         method: 'POST',
@@ -79,7 +98,6 @@ export default function UploadClient() {
         typeof data.result !== 'string' ||
         data.result.trim().length < 10
       ) {
-        console.warn('⚠️ No valid response:', data);
         throw new Error('No meaningful response received. Try rephrasing your question or re-uploading.');
       }
 
@@ -89,21 +107,6 @@ export default function UploadClient() {
       setError(err.message || 'Unexpected error occurred.');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleDownloadPDF = async () => {
-    if (!response) return alert('No response to export.');
-
-    try {
-      const blob = await pdf(
-        <PdfDocument prompt={prompt} tone={tone} response={response} />
-      ).toBlob();
-
-      saveAs(blob, 'MyCustodyCoach_Response.pdf');
-    } catch (err) {
-      console.error('❌ PDF export error:', err);
-      alert('Failed to generate PDF.');
     }
   };
 
@@ -195,13 +198,6 @@ export default function UploadClient() {
             <p><strong>Question:</strong> {prompt}</p>
             <hr className="border-t border-gray-300 dark:border-gray-600" />
             <div className="whitespace-pre-wrap text-base leading-relaxed">{response}</div>
-
-            <button
-              onClick={handleDownloadPDF}
-              className="bg-green-600 hover:bg-green-700 text-white mt-4 py-2 px-6 rounded-xl transition-all duration-200 shadow-md hover:shadow-lg active:scale-95"
-            >
-              Download PDF
-            </button>
           </section>
         )}
       </div>
