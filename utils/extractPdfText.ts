@@ -1,10 +1,11 @@
-import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist/legacy/build/pdf.js';
+import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist/build/pdf';
+import Tesseract from 'tesseract.js';
 import type { PDFDocumentProxy } from 'pdfjs-dist/types/src/display/api';
 
 const MAX_CHARS = 10000;
 
-// ✅ Next.js/Vercel-safe worker setup
-GlobalWorkerOptions.workerSrc = require('pdfjs-dist/build/pdf.worker.js');
+// ✅ Vercel-compatible worker setup
+GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.worker.min.js';
 
 function truncate(text: string): string {
   return text.length > MAX_CHARS ? text.slice(0, MAX_CHARS) + '\n\n...[truncated]' : text;
@@ -47,8 +48,6 @@ export async function extractPdfText(buffer: Buffer): Promise<string> {
 async function extractWithOCR(buffer: Buffer): Promise<string> {
   try {
     console.log('🔁 OCR fallback triggered');
-    const Tesseract = (await import('tesseract.js')).default;
-
     const { data } = await Tesseract.recognize(buffer, 'eng', {
       logger: (m) => console.log('🧠 OCR:', m),
     });
