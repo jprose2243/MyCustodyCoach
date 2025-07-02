@@ -5,42 +5,42 @@ import Tesseract from 'tesseract.js';
 const MAX_CHARS = 10000;
 
 /**
- * Extracts plain text from a file based on MIME type.
- * Supports: PDF, DOCX, TXT, PNG, JPG.
+ * Extracts plain text from any uploaded file based on its MIME type.
  */
 export async function extractTextFromFile(buffer: Buffer, mimeType: string): Promise<string> {
-  if (mimeType === 'application/pdf') {
-    return await extractPdfText(buffer);
-  }
+  try {
+    switch (mimeType) {
+      case 'application/pdf':
+        return await extractPdfText(buffer);
 
-  if (mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
-    try {
-      const { value } = await mammoth.extractRawText({ buffer });
-      console.log('✅ DOCX text extracted');
-      return value.trim().slice(0, MAX_CHARS);
-    } catch (err) {
-      console.warn('⚠️ DOCX parsing failed:', err);
-      return '';
+      case 'application/vnd.openxmlformats-officedocument.wordprocessingml.document': {
+        const { value } = await mammoth.extractRawText({ buffer });
+        console.log('✅ DOCX text extracted');
+        return value.trim().slice(0, MAX_CHARS);
+      }
+
+      case 'text/plain':
+        console.log('✅ Plaintext file extracted');
+        return buffer.toString('utf-8').trim().slice(0, MAX_CHARS);
+
+      default:
+        if (mimeType.startsWith('image/')) {
+          return await extractWithOCR(buffer);
+        }
+
+        console.warn('❌ Unsupported MIME type:', mimeType);
+        return '';
     }
+  } catch (err) {
+    console.error(`❌ extractTextFromFile failed for type "${mimeType}"`, err);
+    return '';
   }
-
-  if (mimeType === 'text/plain') {
-    console.log('✅ Plaintext file extracted');
-    return buffer.toString('utf-8').trim().slice(0, MAX_CHARS);
-  }
-
-  if (mimeType.startsWith('image/')) {
-    return await extractTextFromImage(buffer);
-  }
-
-  console.warn('❌ Unsupported MIME type:', mimeType);
-  return '';
 }
 
 /**
- * OCR fallback for scanned images (PNG, JPG).
+ * OCR fallback using tesseract.js for image files.
  */
-async function extractTextFromImage(buffer: Buffer): Promise<string> {
+async function extractWithOCR(buffer: Buffer): Promise<string> {
   try {
     console.log('🔁 OCR fallback triggered');
     const { data } = await Tesseract.recognize(buffer, 'eng', {

@@ -1,8 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 
 export default function UploadClient() {
+  const supabase = createClientComponentClient();
+
+  const [userId, setUserId] = useState('');
   const [prompt, setPrompt] = useState('');
   const [tone, setTone] = useState('calm');
   const [file, setFile] = useState<File | null>(null);
@@ -11,13 +15,16 @@ export default function UploadClient() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const userId = 'demo-user-001'; // Replace later with real auth user ID
-
   useEffect(() => {
-    if (file) {
-      console.log('🧾 File state updated:', file.name, file.size);
-    }
-  }, [file]);
+    const getUserId = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const id = session?.user?.id;
+      if (id) setUserId(id);
+    };
+    getUserId();
+  }, []);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const uploaded = e.target.files?.[0];
@@ -69,6 +76,8 @@ export default function UploadClient() {
     setLoading(true);
 
     try {
+      if (!userId) throw new Error('❌ You must be logged in to submit a question.');
+
       await new Promise((res) => setTimeout(res, 150));
       if (file && file.size === 0) {
         throw new Error('⚠️ Uploaded file is empty or not fully loaded yet.');
@@ -83,6 +92,7 @@ export default function UploadClient() {
       formData.append('question', prompt.trim());
       formData.append('tone', tone);
       formData.append('fileUrl', uploadedFileUrl);
+      formData.append('userId', userId);
 
       const res = await fetch('/api/generate-response', {
         method: 'POST',

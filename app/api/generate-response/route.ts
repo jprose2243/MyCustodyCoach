@@ -4,13 +4,11 @@ import type { IncomingMessage } from 'http';
 import formidable from 'formidable';
 import * as fs from 'fs/promises';
 import OpenAI from 'openai';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase-admin';
 import { extractTextFromFile } from '@/utils/extractTextFromFile';
 
 export const config = {
-  api: {
-    bodyParser: false,
-  },
+  api: { bodyParser: false },
 };
 
 const openai = new OpenAI({
@@ -19,6 +17,7 @@ const openai = new OpenAI({
 
 const MAX_FILE_SIZE_MB = 500;
 const MAX_CONTEXT_CHARS = 10000;
+
 const ALLOWED_MIME_TYPES = [
   'application/pdf',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -27,7 +26,7 @@ const ALLOWED_MIME_TYPES = [
   'image/jpeg',
 ];
 
-async function parseFormDataFromNextRequest(req: NextRequest): Promise<{ fields: any }> {
+async function parseFormDataFromNextRequest(req: NextRequest): Promise<{ fields: Record<string, any> }> {
   const contentType = req.headers.get('content-type') || '';
   const contentLength = req.headers.get('content-length') || '';
   const blob = await req.blob();
@@ -42,13 +41,17 @@ async function parseFormDataFromNextRequest(req: NextRequest): Promise<{ fields:
 
   const form = formidable({
     maxFileSize: MAX_FILE_SIZE_MB * 1024 * 1024,
-    keepExtensions: true,
+    allowEmptyFiles: false,
+    multiples: false,
   });
 
   return new Promise((resolve, reject) => {
     form.parse(mockReq, (err, fields) => {
-      if (err) reject(err);
-      else resolve({ fields });
+      if (err) {
+        console.error('❌ Form parsing error:', err);
+        return reject(err);
+      }
+      resolve({ fields });
     });
   });
 }
@@ -57,13 +60,36 @@ export async function POST(req: NextRequest) {
   try {
     const { fields } = await parseFormDataFromNextRequest(req);
 
-    const question = (fields?.question?.[0] || '').trim();
-    const tone = (fields?.tone?.[0] || 'calm').trim().toLowerCase();
-    const fileUrl = (fields?.fileUrl?.[0] || '').trim();
-    const userId = (fields?.userId?.[0] || 'demo-user-001').trim(); // replace with auth.uid() later
+    const question = (fields.question || '').trim();
+    const tone = (fields.tone || 'calm').trim().toLowerCase();
+    const fileUrl = (fields.fileUrl || '').trim();
+    const userId = (fields.userId || '').trim();
+
+    if (!userId) {
+      return NextResponse.json({ error: '❌ Missing userId. Must be authenticated.' }, { status: 401 });
+    }
 
     if (!question) {
       return NextResponse.json({ error: '❌ Question is required.' }, { status: 400 });
+    }
+
+    // ✅ Check user profile first
+    const { data: userProfile, error: profileError } = await supabase
+      .from('user_profiles')
+      .select('questions_used, subscribed')
+      .eq('id', userId)
+      .single();
+
+    if (profileError || !userProfile) {
+      return NextResponse.json({ error: '❌ Failed to fetch user profile.' }, { status: 403 });
+    }
+
+    const { questions_used, subscribed } = userProfile;
+
+    if (!subscribed && questions_used >= 3) {
+      return NextResponse.json({
+        error: '❌ Free question limit reached. Please subscribe to continue.',
+      }, { status: 403 });
     }
 
     console.log('📝 User prompt:', question);
@@ -75,20 +101,20 @@ export async function POST(req: NextRequest) {
     if (fileUrl) {
       const parts = fileUrl.split('/object/public/');
       if (parts.length < 2) {
-        return NextResponse.json({ error: '❌ Invalid file URL provided.' }, { status: 400 });
+        return NextResponse.json({ error: '❌ Invalid file URL format.' }, { status: 400 });
       }
 
       const [bucketName, ...pathParts] = parts[1].split('/');
       const filePath = pathParts.join('/');
-      fileName = decodeURIComponent(pathParts[pathParts.length - 1]);
+      fileName = decodeURIComponent(pathParts.at(-1) || '');
 
-      const { data: signedUrlData, error } = await supabase.storage
+      const { data: signedUrlData, error: signedUrlError } = await supabase.storage
         .from(bucketName)
         .createSignedUrl(filePath, 60);
 
-      if (error || !signedUrlData?.signedUrl) {
-        console.error('❌ Failed to fetch signed Supabase file:', error);
-        return NextResponse.json({ error: '❌ Failed to fetch file from Supabase.' }, { status: 500 });
+      if (signedUrlError || !signedUrlData?.signedUrl) {
+        console.error('❌ Signed URL fetch error:', signedUrlError);
+        return NextResponse.json({ error: '❌ Could not generate signed file URL.' }, { status: 500 });
       }
 
       const fileRes = await fetch(signedUrlData.signedUrl);
@@ -121,8 +147,7 @@ ${context ? `Context from uploaded file:\n${context}` : ''}
       messages: [
         {
           role: 'system',
-          content:
-            'You are a calm, empathetic assistant helping parents understand custody paperwork. Never provide legal advice.',
+          content: 'You are a calm, empathetic assistant helping parents understand custody paperwork. Never provide legal advice.',
         },
         {
           role: 'user',
@@ -132,9 +157,9 @@ ${context ? `Context from uploaded file:\n${context}` : ''}
     });
 
     const result = completion.choices[0]?.message?.content?.trim() || 'No response generated.';
-    console.log('✅ AI response:', result.slice(0, 120));
+    console.log('✅ AI response:', result.slice(0, 100));
 
-    // ✅ Save session to Supabase
+    // ✅ Log session
     const { error: insertError } = await supabase.from('sessions').insert([
       {
         user_id: userId,
@@ -147,14 +172,26 @@ ${context ? `Context from uploaded file:\n${context}` : ''}
     ]);
 
     if (insertError) {
-      console.warn('⚠️ Failed to log session to Supabase:', insertError.message);
+      console.warn('⚠️ Failed to insert session log:', insertError.message);
+    }
+
+    // ✅ Increment questions_used if not subscribed
+    if (!subscribed) {
+      const { error: updateError } = await supabase
+        .from('user_profiles')
+        .update({ questions_used: questions_used + 1 })
+        .eq('id', userId);
+
+      if (updateError) {
+        console.warn('⚠️ Failed to increment question count:', updateError.message);
+      }
     }
 
     return NextResponse.json({ result });
   } catch (err: any) {
-    console.error('❌ Error in POST /api/generate-response:', err);
+    console.error('❌ Internal server error in /generate-response:', err);
     return NextResponse.json(
-      { error: err.message || 'Internal server error.' },
+      { error: err.message || 'Unexpected error occurred.' },
       { status: 500 }
     );
   }

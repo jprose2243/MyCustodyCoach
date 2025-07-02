@@ -1,38 +1,46 @@
-import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist/legacy/build/pdf.js';
-import Tesseract from 'tesseract.js';
+import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist';
 import type { PDFDocumentProxy } from 'pdfjs-dist/types/src/display/api';
+import Tesseract from 'tesseract.js';
 
 const MAX_CHARS = 10000;
 
-// ✅ Vercel-compatible worker setup
-GlobalWorkerOptions.workerSrc =
-  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.worker.min.js';
+// ✅ Prevent crash in Node.js (set fallback globals)
+if (typeof window === 'undefined') {
+  // @ts-ignore
+  globalThis.navigator = { userAgent: 'node.js' };
+  // @ts-ignore
+  globalThis.document = {};
+  // @ts-ignore
+  globalThis.HTMLCanvasElement = function () {};
+}
 
 function truncate(text: string): string {
   return text.length > MAX_CHARS ? text.slice(0, MAX_CHARS) + '\n\n...[truncated]' : text;
 }
 
 /**
- * Extracts text from a PDF using pdfjs-dist. Falls back to OCR if sparse or fails.
+ * Extracts text from PDF using pdfjs-dist. Falls back to OCR if sparse or broken.
  */
 export async function extractPdfText(buffer: Buffer): Promise<string> {
   try {
     console.log('📥 extractPdfText called');
-    const uint8Array = new Uint8Array(buffer);
-    const loadingTask = getDocument({ data: uint8Array });
-    const pdf: PDFDocumentProxy = await loadingTask.promise;
 
+    const loadingTask = getDocument({
+      data: new Uint8Array(buffer),
+      disableWorker: true, // ✅ Required in Node
+    });
+
+    const pdf: PDFDocumentProxy = await loadingTask.promise;
     let fullText = '';
 
     for (let i = 1; i <= pdf.numPages; i++) {
       const page = await pdf.getPage(i);
       const content = await page.getTextContent();
-      const pageText = content.items.map((item: any) => item.str).join(' ');
-      fullText += `\n${pageText}`;
+      const text = content.items.map((item: any) => item.str).join(' ');
+      fullText += `\n${text}`;
     }
 
     fullText = fullText.trim();
-
     if (fullText.length < 100) {
       console.warn('⚠️ PDF sparse — using OCR fallback');
       return await extractWithOCR(buffer);
