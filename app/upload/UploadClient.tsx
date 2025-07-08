@@ -23,10 +23,7 @@ export default function UploadClient() {
 
   useEffect(() => {
     const fetchSessionAndProfile = async () => {
-      const {
-        data: { session },
-        error: sessionError,
-      } = await supabase.auth.getSession();
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
       if (sessionError || !session?.user?.id) {
         console.error('❌ No Supabase session:', sessionError);
@@ -141,7 +138,6 @@ export default function UploadClient() {
       const finalResult = data.result.trim();
       setResponse(finalResult);
 
-      // ✅ Save log to Supabase sessions
       const { error: insertError } = await supabase.from('sessions').insert({
         user_id: userId,
         prompt: prompt.trim(),

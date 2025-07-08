@@ -1,10 +1,27 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { createMiddlewareClient } from '@supabase/auth-helpers/nextjs';
+import { createServerClient } from '@supabase/ssr';
 
 export async function middleware(req: NextRequest) {
   const res = NextResponse.next();
-  const supabase = createMiddlewareClient({ req, res });
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name) {
+          return req.cookies.get(name)?.value;
+        },
+        set(name, value, options) {
+          res.cookies.set({ name, value, ...options });
+        },
+        remove(name, options) {
+          res.cookies.set({ name, value: '', ...options });
+        },
+      },
+    }
+  );
 
   const {
     data: { session },
@@ -13,31 +30,35 @@ export async function middleware(req: NextRequest) {
   const url = req.nextUrl.pathname;
   const bypass = process.env.DEV_BYPASS_SUBSCRIPTION === 'true';
 
-  if (!session && url.startsWith('/upload')) {
-    return NextResponse.redirect(new URL('/login', req.url));
+  // ✅ Define protected routes
+  const protectedPaths = ['/upload', '/history'];
+  const isProtected = protectedPaths.some((path) => url.startsWith(path));
+  const isApi = url.startsWith('/api');
+
+  // ✅ Block access if not logged in
+  if (!session && (isProtected || isApi)) {
+    if (isApi) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    } else {
+      return NextResponse.redirect(new URL('/login', req.url));
+    }
   }
 
-  if (!session && url.startsWith('/history')) {
-    return NextResponse.redirect(new URL('/login', req.url));
-  }
-
-  if (!session && url.startsWith('/api')) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
-  // ✅ Check subscription status unless bypassing for local dev
-  if (
-    session &&
-    !bypass &&
-    (url.startsWith('/upload') || url.startsWith('/history') || url.startsWith('/api'))
-  ) {
-    const { data: profile } = await supabase
+  // ✅ Enforce subscription unless bypass is active
+  if (session && !bypass && (isProtected || isApi)) {
+    const { data: profile, error } = await supabase
       .from('user_profiles')
       .select('subscription_status')
-      .eq('uid', session.user.id)
+      .eq('id', session.user.id)
       .single();
 
+    if (error) {
+      console.error('❌ Failed to fetch user profile in middleware:', error.message);
+      return NextResponse.redirect(new URL('/login', req.url));
+    }
+
     if (!profile?.subscription_status) {
+      console.log('⛔ Blocked non-subscriber access to:', url);
       return NextResponse.redirect(new URL('/payment', req.url));
     }
   }

@@ -4,30 +4,29 @@ import Tesseract from 'tesseract.js';
 
 const MAX_CHARS = 10000;
 
-// ✅ Prevent crash in Node.js (set fallback globals)
+// ✅ Disable browser-specific expectations in Node.js
 if (typeof window === 'undefined') {
+  // Prevent PDF.js from crashing on missing window APIs
   // @ts-ignore
   globalThis.navigator = { userAgent: 'node.js' };
   // @ts-ignore
   globalThis.document = {};
   // @ts-ignore
   globalThis.HTMLCanvasElement = function () {};
+  GlobalWorkerOptions.workerSrc = ''; // Disable worker usage
 }
 
 function truncate(text: string): string {
   return text.length > MAX_CHARS ? text.slice(0, MAX_CHARS) + '\n\n...[truncated]' : text;
 }
 
-/**
- * Extracts text from PDF using pdfjs-dist. Falls back to OCR if sparse or broken.
- */
 export async function extractPdfText(buffer: Buffer): Promise<string> {
   try {
     console.log('📥 extractPdfText called');
 
     const loadingTask = getDocument({
       data: new Uint8Array(buffer),
-      disableWorker: true, // ✅ Required in Node
+      disableWorker: true, // 🔒 Node-safe
     });
 
     const pdf: PDFDocumentProxy = await loadingTask.promise;
@@ -41,15 +40,16 @@ export async function extractPdfText(buffer: Buffer): Promise<string> {
     }
 
     fullText = fullText.trim();
+
     if (fullText.length < 100) {
-      console.warn('⚠️ PDF sparse — using OCR fallback');
+      console.warn('⚠️ PDF content sparse — switching to OCR');
       return await extractWithOCR(buffer);
     }
 
-    console.log('✅ Text extracted with pdfjs-dist');
+    console.log('✅ PDF parsed successfully');
     return truncate(fullText);
   } catch (err) {
-    console.warn('⚠️ PDF.js failed, falling back to OCR:', err);
+    console.warn('⚠️ PDF.js failed, switching to OCR:', err);
     return await extractWithOCR(buffer);
   }
 }
@@ -63,7 +63,7 @@ async function extractWithOCR(buffer: Buffer): Promise<string> {
 
     const extracted = data.text.trim();
     if (!extracted) {
-      console.warn('⚠️ OCR returned empty text');
+      console.warn('⚠️ OCR returned no readable content');
       return '';
     }
 
