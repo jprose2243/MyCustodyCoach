@@ -1,19 +1,19 @@
-import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist';
+import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist/legacy/build/pdf.js';
 import type { PDFDocumentProxy } from 'pdfjs-dist/types/src/display/api';
 import Tesseract from 'tesseract.js';
 
 const MAX_CHARS = 10000;
 
-// ✅ Disable browser-specific expectations in Node.js
+// ✅ Safe for Node.js environment
 if (typeof window === 'undefined') {
-  // Prevent PDF.js from crashing on missing window APIs
+  // Prevent PDF.js from requiring browser APIs
   // @ts-ignore
   globalThis.navigator = { userAgent: 'node.js' };
   // @ts-ignore
   globalThis.document = {};
   // @ts-ignore
   globalThis.HTMLCanvasElement = function () {};
-  GlobalWorkerOptions.workerSrc = ''; // Disable worker usage
+  GlobalWorkerOptions.workerSrc = ''; // 🛑 Disable worker for server use
 }
 
 function truncate(text: string): string {
@@ -26,7 +26,7 @@ export async function extractPdfText(buffer: Buffer): Promise<string> {
 
     const loadingTask = getDocument({
       data: new Uint8Array(buffer),
-      disableWorker: true, // 🔒 Node-safe
+      disableWorker: true,
     });
 
     const pdf: PDFDocumentProxy = await loadingTask.promise;
@@ -42,14 +42,14 @@ export async function extractPdfText(buffer: Buffer): Promise<string> {
     fullText = fullText.trim();
 
     if (fullText.length < 100) {
-      console.warn('⚠️ PDF content sparse — switching to OCR');
+      console.warn('⚠️ PDF sparse — falling back to OCR');
       return await extractWithOCR(buffer);
     }
 
-    console.log('✅ PDF parsed successfully');
+    console.log('✅ Text extracted with pdfjs-dist');
     return truncate(fullText);
   } catch (err) {
-    console.warn('⚠️ PDF.js failed, switching to OCR:', err);
+    console.warn('⚠️ PDF.js failed, falling back to OCR:', err);
     return await extractWithOCR(buffer);
   }
 }
@@ -63,7 +63,7 @@ async function extractWithOCR(buffer: Buffer): Promise<string> {
 
     const extracted = data.text.trim();
     if (!extracted) {
-      console.warn('⚠️ OCR returned no readable content');
+      console.warn('⚠️ OCR returned empty text');
       return '';
     }
 
