@@ -1,19 +1,22 @@
-import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist/legacy/build/pdf.js';
+import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import type { PDFDocumentProxy } from 'pdfjs-dist/types/src/display/api';
 import Tesseract from 'tesseract.js';
 
 const MAX_CHARS = 10000;
 
-// ✅ Safe for Node.js environment
+// ✅ SSR-safe setup
 if (typeof window === 'undefined') {
-  // Prevent PDF.js from requiring browser APIs
+  // Prevent crashes in Node/Vercel
   // @ts-ignore
   globalThis.navigator = { userAgent: 'node.js' };
   // @ts-ignore
   globalThis.document = {};
   // @ts-ignore
   globalThis.HTMLCanvasElement = function () {};
-  GlobalWorkerOptions.workerSrc = ''; // 🛑 Disable worker for server use
+  // @ts-ignore
+  globalThis.CanvasRenderingContext2D = function () {};
+
+  GlobalWorkerOptions.workerSrc = ''; // Disable PDF worker
 }
 
 function truncate(text: string): string {
@@ -46,7 +49,7 @@ export async function extractPdfText(buffer: Buffer): Promise<string> {
       return await extractWithOCR(buffer);
     }
 
-    console.log('✅ Text extracted with pdfjs-dist');
+    console.log('✅ Text extracted with PDF.js');
     return truncate(fullText);
   } catch (err) {
     console.warn('⚠️ PDF.js failed, falling back to OCR:', err);
@@ -57,6 +60,7 @@ export async function extractPdfText(buffer: Buffer): Promise<string> {
 async function extractWithOCR(buffer: Buffer): Promise<string> {
   try {
     console.log('🔁 OCR fallback triggered');
+
     const { data } = await Tesseract.recognize(buffer, 'eng', {
       logger: (m) => console.log('🧠 OCR:', m),
     });

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2023-08-16',
+  apiVersion: '2025-06-30.basil' as any, // ✅ Cast to silence TS warning
 });
 
 export async function POST(req: Request) {
@@ -18,7 +18,6 @@ export async function POST(req: Request) {
       );
     }
 
-    // ✅ Grab user info from request body
     const { userId, email } = await req.json();
 
     if (!userId || !email) {
@@ -29,13 +28,12 @@ export async function POST(req: Request) {
       );
     }
 
-    // ✅ Create Stripe checkout session
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
       payment_method_types: ['card'],
       customer_email: email,
       metadata: {
-        userId, // 👈 passed into verify-payment route
+        userId, // Used in verify-payment
       },
       line_items: [{ price: priceId, quantity: 1 }],
       success_url: `${siteUrl}/payment/success?session_id={CHECKOUT_SESSION_ID}`,

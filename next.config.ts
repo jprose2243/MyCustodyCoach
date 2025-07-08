@@ -1,16 +1,20 @@
+import path from 'path';
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
 
   webpack: (config, { isServer }) => {
-    // ✅ Fix PDF.js issues by aliasing to the legacy build explicitly
     config.resolve.alias = {
       ...(config.resolve.alias || {}),
+      // ✅ App-wide import alias support
+      '@': path.resolve(__dirname, '.'),
+
+      // ✅ Fix PDF.js compatibility
       'pdfjs-dist': 'pdfjs-dist/legacy/build/pdf.js',
     };
 
-    // ✅ Prevent bundling node-only modules like canvas in client build
+    // ✅ Prevent server-only modules from leaking into client builds
     if (!isServer) {
       config.resolve.fallback = {
         ...(config.resolve.fallback || {}),
