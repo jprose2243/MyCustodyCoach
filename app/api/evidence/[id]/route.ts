@@ -4,10 +4,10 @@ import { supabase } from '@/lib/supabase-admin';
 // GET /api/evidence/[id] - Get specific evidence item
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('userId');
 
@@ -40,10 +40,10 @@ export async function GET(
 // PUT /api/evidence/[id] - Update specific evidence item
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const body = await request.json();
     
     const {
@@ -152,10 +152,10 @@ export async function PUT(
 // DELETE /api/evidence/[id] - Delete specific evidence item
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('userId');
     const hardDelete = searchParams.get('hard') === 'true';
