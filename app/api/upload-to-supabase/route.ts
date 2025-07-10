@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { handleFileUpload } from '@/src/services/fileUploadService';
+import { extractTextFromFile, validateFileType } from '@/src/utils/extractTextFromFile';
+import { logAuditEvent, AuditEventType, extractClientInfo } from '@/src/services/auditService';
+import { createAppError, ErrorCode, sanitizeErrorForClient } from '@/src/utils/errorHandler';
 import { Readable } from 'stream';
 import { IncomingMessage } from 'http';
 import formidable from 'formidable';
-import * as fs from 'fs/promises';
-import path from 'path';
-import { supabase } from '@/lib/supabase-admin'; // ✅ secure server-only admin client
+import { rateLimit } from '@/src/middleware/rateLimit';
+import { supabase } from '@/src/lib/server-only/supabase-admin';
 
 export const config = {
   api: {
@@ -12,12 +15,7 @@ export const config = {
   },
 };
 
-const BUCKET_NAME = 'user-uploads';
-const MAX_SIZE_MB = 500;
-
-async function parseMultipart(
-  req: NextRequest
-): Promise<{ file: formidable.File; userId: string }> {
+async function parseMultipart(req: NextRequest): Promise<{ file: formidable.File; userId: string }> {
   const contentType = req.headers.get('content-type') || '';
   const contentLength = req.headers.get('content-length') || '';
   const blob = await req.blob();
@@ -32,7 +30,7 @@ async function parseMultipart(
   }) as unknown as IncomingMessage;
 
   const form = formidable({
-    maxFileSize: MAX_SIZE_MB * 1024 * 1024,
+    maxFileSize: 500 * 1024 * 1024,
     allowEmptyFiles: false,
     multiples: false,
   });
@@ -42,7 +40,6 @@ async function parseMultipart(
       const file = files?.file;
       const userId = fields?.userId;
       if (err || !file || !userId) {
-        console.warn('❌ Form error or missing fields:', err, fields, files);
         return reject(new Error('❌ Invalid upload: file and userId required.'));
       }
       resolve({
@@ -54,40 +51,77 @@ async function parseMultipart(
 }
 
 export async function POST(req: NextRequest) {
+  const { ip_address, user_agent } = extractClientInfo(req);
+  const { allowed, retryAfter } = rateLimit(ip_address);
+  
+  if (!allowed) {
+    await logAuditEvent({
+      event_type: AuditEventType.RATE_LIMIT_EXCEEDED,
+      user_id: null,
+      ip_address,
+      user_agent,
+      metadata: { endpoint: '/api/upload-to-supabase' },
+    });
+    
+    return NextResponse.json(
+      { error: 'Too many requests. Please try again later.' }, 
+      { 
+        status: 429, 
+        headers: { 'Retry-After': retryAfter?.toString() || '60' } 
+      }
+    );
+  }
+
   try {
     const { file, userId } = await parseMultipart(req);
-    const buffer = await fs.readFile(file.filepath);
-
-    const sanitizedName = path
-      .basename(file.originalFilename || 'upload.bin')
-      .replace(/\s+/g, '-');
-
-    const filePath = `${userId}/${Date.now()}-${sanitizedName}`;
-
-    const { data, error } = await supabase.storage
-      .from(BUCKET_NAME)
-      .upload(filePath, buffer, {
-        contentType: file.mimetype || 'application/octet-stream',
-        upsert: false,
-      });
-
-    if (error) {
-      console.error('❌ Supabase upload error:', error.message);
-      throw error;
+    
+    // Enhanced validation
+    if (!file.mimetype) {
+      throw createAppError(
+        'File type could not be determined',
+        ErrorCode.VALIDATION_ERROR,
+        400
+      );
     }
 
-    const fileUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${BUCKET_NAME}/${filePath}`;
+    // Validate file type by checking magic bytes
+    const fs = await import('fs/promises');
+    const buffer = await fs.readFile(file.filepath);
+    
+    if (!validateFileType(buffer, file.mimetype)) {
+      throw createAppError(
+        'File content does not match the declared file type',
+        ErrorCode.VALIDATION_ERROR,
+        400
+      );
+    }
 
-    return NextResponse.json({
-      success: true,
-      path: filePath,
-      url: encodeURI(fileUrl),
-    });
-  } catch (err: any) {
-    console.error('❌ Upload handler error:', err.message || err);
+         // Use the robust file upload service
+     const result = await handleFileUpload({
+       file: {
+         mimetype: file.mimetype,
+         size: file.size,
+         filepath: file.filepath,
+         originalFilename: file.originalFilename || null,
+       },
+       userId,
+     });
+
+    if ('error' in result) {
+      return NextResponse.json(
+        { error: result.error }, 
+        { status: result.status || 500 }
+      );
+    }
+
+    return NextResponse.json(result);
+    
+  } catch (err: unknown) {
+    const sanitized = sanitizeErrorForClient(err as Error);
+    
     return NextResponse.json(
-      { error: err.message || 'Upload failed' },
-      { status: 500 }
+      { error: sanitized.message },
+      { status: sanitized.statusCode || 500 }
     );
   }
 }

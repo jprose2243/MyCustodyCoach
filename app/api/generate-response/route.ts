@@ -1,184 +1,232 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Readable } from 'stream';
-import type { IncomingMessage } from 'http';
-import formidable from 'formidable';
-import * as fs from 'fs/promises';
-import OpenAI from 'openai';
-import { supabase } from '@/lib/supabase-admin';
-import { extractTextFromFile } from '@/utils/extractTextFromFile';
+import { generateResponse } from '@/src/services/openaiService';
+import { supabase } from '@/src/lib/server-only/supabase-admin';
+import { logError } from '@/src/utils/errorHandler';
 
 export const config = {
   api: { bodyParser: false },
 };
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY!,
-});
-
-const MAX_FILE_SIZE_MB = 500;
-const MAX_CONTEXT_CHARS = 10000;
-
-const ALLOWED_MIME_TYPES = [
-  'application/pdf',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'text/plain',
-  'image/png',
-  'image/jpeg',
-];
-
-async function parseFormDataFromNextRequest(req: NextRequest): Promise<{ fields: Record<string, any> }> {
-  const contentType = req.headers.get('content-type') || '';
-  const contentLength = req.headers.get('content-length') || '';
-  const blob = await req.blob();
-  const bodyBuffer = Buffer.from(await blob.arrayBuffer());
-
-  const mockReq = Object.assign(Readable.from(bodyBuffer), {
-    headers: {
-      'content-type': contentType,
-      'content-length': contentLength,
-    },
-  }) as unknown as IncomingMessage;
-
-  const form = formidable({
-    maxFileSize: MAX_FILE_SIZE_MB * 1024 * 1024,
-    allowEmptyFiles: false,
-    multiples: false,
-  });
-
-  return new Promise((resolve, reject) => {
-    form.parse(mockReq, (err, fields) => {
-      if (err) {
-        console.error('❌ Form parsing error:', err);
-        return reject(err);
-      }
-      resolve({ fields });
-    });
-  });
+// Helper function to detect parenting time related queries
+function isParentingTimeQuery(question: string): boolean {
+  const parentingTimeKeywords = [
+    'parenting time', 'parenting schedule', 'custody time', 'visitation time',
+    'visits', 'overnight', 'overnight visits', 'missed visits', 'makeup visits',
+    'time with child', 'time with children', 'custody schedule',
+    'week', 'month', 'year', 'this week', 'this month', 'last month',
+    'how much time', 'how many visits', 'how many days', 'how many hours',
+    'statistics', 'stats', 'summary', 'total time', 'missed time'
+  ];
+  
+  const lowerQuestion = question.toLowerCase();
+  return parentingTimeKeywords.some(keyword => lowerQuestion.includes(keyword));
 }
 
-export async function POST(req: NextRequest) {
+// Helper function to fetch user's parenting time data
+async function fetchParentingTimeData(userId: string) {
   try {
-    const { fields } = await parseFormDataFromNextRequest(req);
-    const question = (fields.question || '').trim();
-    const tone = (fields.tone || 'calm').trim().toLowerCase();
-    const fileUrl = (fields.fileUrl || '').trim();
-    const userId = (fields.userId || '').trim();
+    // Fetch statistics
+    const { data: stats, error: statsError } = await supabase
+      .from('parenting_stats_view')
+      .select('*')
+      .eq('user_id', userId)
+      .single();
 
-    if (!userId) return NextResponse.json({ error: '❌ Missing userId. Must be authenticated.' }, { status: 401 });
-    if (!question) return NextResponse.json({ error: '❌ Question is required.' }, { status: 400 });
+    // Fetch recent entries (last 30 days)
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    
+    const { data: recentEntries, error: entriesError } = await supabase
+      .from('parenting_calendar_view')
+      .select('*')
+      .eq('user_id', userId)
+      .gte('visit_date', thirtyDaysAgo.toISOString().split('T')[0])
+      .order('visit_date', { ascending: false });
 
-    // ✅ Moderation check
-    const moderationRes = await openai.moderations.create({ input: question });
-    if (moderationRes.results[0]?.flagged) {
-      console.warn('🚫 Moderation flagged input:', moderationRes.results[0]);
-      return NextResponse.json(
-        { error: 'Your question may violate safety guidelines. Please rephrase and try again.' },
-        { status: 400 }
-      );
+    // Fetch all entries for broader context if needed
+    const { data: allEntries, error: allEntriesError } = await supabase
+      .from('parenting_calendar_view')
+      .select('visit_date, entry_type, child_name, is_overnight')
+      .eq('user_id', userId)
+      .order('visit_date', { ascending: false });
+
+    if (statsError && statsError.code !== 'PGRST116') {
+      console.error('Error fetching parenting stats:', statsError);
+    }
+    
+    if (entriesError) {
+      console.error('Error fetching recent entries:', entriesError);
     }
 
-    // ✅ Fetch user profile
-    const { data: userProfile, error: profileError } = await supabase
+    if (allEntriesError) {
+      console.error('Error fetching all entries:', allEntriesError);
+    }
+
+    return {
+      stats: stats || {
+        total_entries: 0,
+        successful_visits: 0,
+        missed_visits: 0,
+        makeup_visits: 0,
+        overnight_visits: 0
+      },
+      recentEntries: recentEntries || [],
+      allEntries: allEntries || []
+    };
+  } catch (error) {
+    console.error('Error in fetchParentingTimeData:', error);
+    return { stats: null, recentEntries: [], allEntries: [] };
+  }
+}
+
+// Helper function to format parenting time data for AI context
+function formatParentingTimeContext(data: any): string {
+  const { stats, recentEntries, allEntries } = data;
+  
+  if (!stats || stats.total_entries === 0) {
+    return '\n\nParenting Time Context: This user has not logged any parenting time entries yet. If they ask about parenting time, suggest they start tracking their visits in the Parenting Time Log.';
+  }
+
+  let context = '\n\nParenting Time Context (User\'s Personal Data):';
+  
+  // Overall statistics
+  context += `\nOverall Statistics:
+- Total entries logged: ${stats.total_entries}
+- Successful visits: ${stats.successful_visits}
+- Missed visits: ${stats.missed_visits}
+- Makeup visits: ${stats.makeup_visits}
+- Overnight visits: ${stats.overnight_visits}`;
+
+  // Recent activity (last 30 days)
+  if (recentEntries.length > 0) {
+    context += `\n\nRecent Activity (Last 30 Days): ${recentEntries.length} entries`;
+    
+    // Group recent entries by type
+    const recentByType = recentEntries.reduce((acc: any, entry: any) => {
+      const type = entry.type_description || entry.entry_type;
+      acc[type] = (acc[type] || 0) + 1;
+      return acc;
+    }, {});
+    
+    Object.entries(recentByType).forEach(([type, count]) => {
+      context += `\n- ${type}: ${count}`;
+    });
+
+    // Recent specific visits
+    context += '\n\nRecent Visits:';
+    recentEntries.slice(0, 10).forEach((entry: any) => {
+      const date = new Date(entry.visit_date).toLocaleDateString();
+      const type = entry.type_description || entry.entry_type;
+      const child = entry.child_name ? ` with ${entry.child_name}` : '';
+      const overnight = entry.is_overnight ? ' (overnight)' : '';
+      context += `\n- ${date}: ${type}${child}${overnight}`;
+    });
+  }
+
+  // Calculate time periods if user asks about specific timeframes
+  const now = new Date();
+  const thisWeekStart = new Date(now.setDate(now.getDate() - now.getDay()));
+  const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const thisYearStart = new Date(now.getFullYear(), 0, 1);
+
+  const thisWeekEntries = allEntries.filter((entry: any) => 
+    new Date(entry.visit_date) >= thisWeekStart);
+  const thisMonthEntries = allEntries.filter((entry: any) => 
+    new Date(entry.visit_date) >= thisMonthStart);
+  const thisYearEntries = allEntries.filter((entry: any) => 
+    new Date(entry.visit_date) >= thisYearStart);
+
+  context += `\n\nTime Period Summaries:
+- This week: ${thisWeekEntries.length} entries
+- This month: ${thisMonthEntries.length} entries  
+- This year: ${thisYearEntries.length} entries`;
+
+  context += '\n\nNote: When answering questions about parenting time, use this actual logged data to provide specific, personalized responses. Be accurate with dates, counts, and patterns from their real entries.';
+
+  return context;
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const formData = await request.formData();
+    const question = formData.get('question') as string;
+    const tone = formData.get('tone') as string;
+    const recipient = formData.get('recipient') as string;
+    const fileUrl = formData.get('fileUrl') as string;
+    const userId = formData.get('userId') as string;
+
+    if (!question || !tone || !userId) {
+      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    }
+
+    // Get user profile for context
+    const { data: profile, error: profileError } = await supabase
       .from('user_profiles')
-      .select('questions_used, subscribed, court_state, first_name, child_age, goal_priority, parent_role')
+      .select('first_name, court_state, child_age, goal_priority, parent_role, questions_used, subscription_status')
       .eq('id', userId)
       .single();
 
-    if (profileError || !userProfile) {
-      return NextResponse.json({ error: '❌ Failed to fetch user profile.' }, { status: 403 });
+    if (profileError) {
+      console.error('Failed to fetch user profile:', profileError);
+      return NextResponse.json({ error: 'Failed to fetch user profile' }, { status: 500 });
     }
 
-    const { questions_used, subscribed, court_state, first_name, child_age, goal_priority, parent_role } = userProfile;
+    // Check if user has exceeded free limit
+    const isSubscribed = profile.subscription_status || false;
+    const questionsUsed = profile.questions_used || 0;
 
-    if (!subscribed && questions_used >= 3) {
-      return NextResponse.json({ error: '❌ Free question limit reached. Please subscribe.' }, { status: 403 });
+    if (!isSubscribed && questionsUsed >= 3) {
+      return NextResponse.json({ error: 'Free question limit reached' }, { status: 403 });
     }
 
-    let context = '';
-    let fileName = '';
-
-    if (fileUrl) {
-      const parts = fileUrl.split('/object/public/');
-      if (parts.length < 2) return NextResponse.json({ error: '❌ Invalid file URL.' }, { status: 400 });
-
-      const [bucketName, ...pathParts] = parts[1].split('/');
-      const filePath = pathParts.join('/');
-      fileName = decodeURIComponent(pathParts.at(-1) || '');
-
-      const { data: signedUrlData, error: signedUrlError } = await supabase
-        .storage
-        .from(bucketName)
-        .createSignedUrl(filePath, 60);
-
-      if (signedUrlError || !signedUrlData?.signedUrl) {
-        return NextResponse.json({ error: '❌ Could not generate signed file URL.' }, { status: 500 });
-      }
-
-      const fileRes = await fetch(signedUrlData.signedUrl);
-      const fileBuffer = Buffer.from(await fileRes.arrayBuffer());
-      const mimeType = fileRes.headers.get('content-type') || 'application/octet-stream';
-
-      if (!ALLOWED_MIME_TYPES.includes(mimeType)) {
-        return NextResponse.json({ error: '❌ Unsupported file type.' }, { status: 415 });
-      }
-
-      context = await extractTextFromFile(fileBuffer, mimeType);
-      if (context.length > MAX_CONTEXT_CHARS) {
-        context = context.slice(0, MAX_CONTEXT_CHARS) + '\n\n...[truncated]';
-      }
+    // Build context-aware prompt based on recipient
+    let contextPrompt = '';
+    
+    switch (recipient) {
+      case 'court':
+        contextPrompt = `You are helping a ${profile.parent_role || 'parent'} in ${profile.court_state || 'the US'} prepare a ${tone} response for court documents or communications with a judge. The child is ${profile.child_age || 'school-age'} and the parent's goal is ${profile.goal_priority || 'the child\'s best interests'}. Focus on legal appropriateness, factual presentation, and court etiquette.`;
+        break;
+      case 'lawyer':
+        contextPrompt = `You are helping a ${profile.parent_role || 'parent'} in ${profile.court_state || 'the US'} prepare a ${tone} communication with their attorney. The child is ${profile.child_age || 'school-age'} and the parent's goal is ${profile.goal_priority || 'the child\'s best interests'}. Focus on clear communication, providing relevant facts, and asking appropriate legal questions.`;
+        break;
+      case 'parent':
+        contextPrompt = `You are helping a ${profile.parent_role || 'parent'} in ${profile.court_state || 'the US'} prepare a ${tone} message to communicate with the other parent. The child is ${profile.child_age || 'school-age'} and the parent's goal is ${profile.goal_priority || 'the child\'s best interests'}. Focus on de-escalation, child-centered communication, and maintaining a cooperative co-parenting relationship where possible.`;
+        break;
+      case 'universal':
+        contextPrompt = `You are helping a ${profile.parent_role || 'parent'} in ${profile.court_state || 'the US'} prepare a ${tone} response for general use. The child is ${profile.child_age || 'school-age'} and the parent's goal is ${profile.goal_priority || 'the child\'s best interests'}. This message should be appropriate for any recipient - whether it's a mediator, guardian ad litem, social worker, family member, or other professional involved in the custody case. Focus on clarity, professionalism, and child-centered communication.`;
+        break;
+      default:
+        contextPrompt = `You are helping a ${profile.parent_role || 'parent'} in ${profile.court_state || 'the US'} prepare a ${tone} response. The child is ${profile.child_age || 'school-age'} and the parent's goal is ${profile.goal_priority || 'the child\'s best interests'}.`;
     }
 
-    const aiPrompt = `
-You are assisting a ${tone} ${parent_role || 'parent'} named ${first_name || 'User'} in ${court_state || 'an unknown state'}.
-Their child is ${child_age || 'unknown age'} years old. Their current goal is: ${goal_priority || 'general custody support'}.
+    // Check if this is a parenting time related query and add relevant context
+    if (isParentingTimeQuery(question) && isSubscribed) {
+      console.log('🔍 Detected parenting time query, fetching user data...');
+      const parentingData = await fetchParentingTimeData(userId);
+      const parentingContext = formatParentingTimeContext(parentingData);
+      contextPrompt += parentingContext;
+    }
 
-Question: "${question}"
+    // Generate response using OpenAI
+    const result = await generateResponse(question, tone, fileUrl, contextPrompt);
 
-${context ? `Relevant document context:\n${context}` : ''}
-
-Your job is to assist with tone, clarity, and preparing professional communication.
-Always align your answer with ${court_state || 'state'} family law and avoid giving direct legal advice.
-`.trim();
-
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4',
-      temperature: 0.7,
-      messages: [
-        {
-          role: 'system',
-          content: 'You are a calm, empathetic assistant helping parents understand custody paperwork. Never provide legal advice.',
-        },
-        {
-          role: 'user',
-          content: aiPrompt,
-        },
-      ],
-    });
-
-    const result = completion.choices[0]?.message?.content?.trim() || 'No response generated.';
-    console.log('✅ AI response:', result.slice(0, 100));
-
-    await supabase.from('sessions').insert([
-      {
-        user_id: userId,
-        question,
-        tone,
-        file_name: fileName || null,
-        file_url: fileUrl || null,
-        response: result,
-      },
-    ]);
-
-    if (!subscribed) {
-      await supabase
+    // Update question count for non-subscribers
+    if (!isSubscribed) {
+      const { error: updateError } = await supabase
         .from('user_profiles')
-        .update({ questions_used: questions_used + 1 })
+        .update({ questions_used: questionsUsed + 1 })
         .eq('id', userId);
+
+      if (updateError) {
+        console.error('Failed to update question count:', updateError);
+      }
     }
 
     return NextResponse.json({ result });
-  } catch (err: any) {
-    console.error('❌ Internal error in /generate-response:', err);
-    return NextResponse.json({ error: err.message || 'Unexpected error.' }, { status: 500 });
+
+  } catch (error) {
+    console.error('Error in generate-response:', error);
+    logError(error as Error, { endpoint: '/api/generate-response' });
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

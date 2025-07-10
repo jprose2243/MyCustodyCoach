@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase-browser';
+import { supabase } from '@/src/lib/supabase-browser';
 
 const STATES = [
   'Alabama', 'Alaska', 'Arizona', 'Arkansas', 'California', 'Colorado',
@@ -25,9 +25,35 @@ export default function SignUpPage() {
   const [firstName, setFirstName] = useState('');
   const [courtState, setCourtState] = useState('');
   const [childAge, setChildAge] = useState('');
+  const [childrenCount, setChildrenCount] = useState('');
   const [parentRole, setParentRole] = useState('');
-  const [goalPriority, setGoalPriority] = useState('');
+  const [goalPriority, setGoalPriority] = useState<string[]>([]);
+  const [goalDropdownTouched, setGoalDropdownTouched] = useState(false);
   const [error, setError] = useState('');
+
+  const goalOptions = [
+    '50/50 custody',
+    'primary custody', 
+    'child support modification',
+    'visitation enforcement',
+    'co-parenting communication',
+    'protective orders',
+    'relocation'
+  ];
+
+  const handleGoalChange = (goal: string) => {
+    setGoalPriority(prev => {
+      if (prev.includes(goal)) {
+        // Remove goal if already selected
+        return prev.filter(g => g !== goal);
+      } else if (prev.length < 3) {
+        // Add goal if under limit
+        return [...prev, goal];
+      }
+      // Do nothing if at limit
+      return prev;
+    });
+  };
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,6 +62,11 @@ export default function SignUpPage() {
 
     if (password !== confirm) {
       setError('Passwords do not match');
+      return;
+    }
+
+    if (goalPriority.length === 0) {
+      setError('Please select at least one goal');
       return;
     }
 
@@ -89,8 +120,9 @@ export default function SignUpPage() {
       first_name: firstName.trim(),
       court_state: courtState.trim(),
       child_age: Number(childAge),
+      children_count: childrenCount.trim(),
       parent_role: parentRole.trim(),
-      goal_priority: goalPriority.trim(),
+      goal_priority: goalPriority.join(', '),
     };
 
     console.log('📤 Sending profile payload:', profilePayload);
@@ -108,8 +140,8 @@ export default function SignUpPage() {
       return;
     }
 
-    console.log('✅ Redirecting to /payment');
-    router.push('/payment');
+    console.log('✅ Redirecting to /upload for free trial');
+    router.push('/upload');
   };
 
   return (
@@ -118,6 +150,21 @@ export default function SignUpPage() {
         <h1 className="text-2xl font-bold text-center">
           Sign Up for <span className="text-indigo-400">MyCustodyCoach</span>
         </h1>
+        
+        <div className="bg-green-900/50 border border-green-600 rounded-lg p-3 text-center">
+          <p className="text-green-200 text-sm">
+            🎉 <strong>Start your free trial!</strong> Get 3 free AI-powered responses to test our service.
+          </p>
+        </div>
+
+        <div className="bg-blue-900/50 border border-blue-600 rounded-lg p-3">
+          <p className="text-blue-200 text-sm font-medium mb-1">
+            Is my information secure?
+          </p>
+          <p className="text-blue-100 text-xs">
+            Yes, MyCustodyCoach takes protecting and securing your personal data very seriously—it's our main priority. We use industry-standard security practices and encryption to safeguard your information and case details, which are never shared with third parties.
+          </p>
+        </div>
 
         {error && <p className="text-red-400 text-center">{error}</p>}
 
@@ -142,14 +189,32 @@ export default function SignUpPage() {
           ))}
         </select>
 
-        <input
-          type="number"
-          placeholder="Child's Age"
+        <select
           className="w-full px-4 py-2 rounded bg-gray-700 border border-gray-600"
           value={childAge}
           onChange={(e) => setChildAge(e.target.value)}
           required
-        />
+        >
+          <option value="">Child's Age (oldest if multiple)</option>
+          {Array.from({ length: 20 }, (_, i) => (
+            <option key={i} value={i.toString()}>{i} years old</option>
+          ))}
+        </select>
+
+        <select
+          className="w-full px-4 py-2 rounded bg-gray-700 border border-gray-600"
+          value={childrenCount}
+          onChange={(e) => setChildrenCount(e.target.value)}
+          required
+        >
+          <option value="">How many children?</option>
+          <option value="1">1 child</option>
+          <option value="2">2 children</option>
+          <option value="3">3 children</option>
+          <option value="4">4 children</option>
+          <option value="5">5 children</option>
+          <option value="6+">6 or more children</option>
+        </select>
 
         <select
           className="w-full px-4 py-2 rounded bg-gray-700 border border-gray-600"
@@ -162,18 +227,60 @@ export default function SignUpPage() {
           <option value="mother">Mother</option>
         </select>
 
-        <select
-          className="w-full px-4 py-2 rounded bg-gray-700 border border-gray-600"
-          value={goalPriority}
-          onChange={(e) => setGoalPriority(e.target.value)}
-          required
-        >
-          <option value="">Select Goal</option>
-          <option value="50/50 custody">50/50 Custody</option>
-          <option value="primary custody">Primary Custody</option>
-          <option value="protective orders">Protective Orders</option>
-          <option value="relocation">Relocation</option>
-        </select>
+        <div className="relative">
+          <select
+            className="w-full px-4 py-2 rounded bg-gray-700 border border-gray-600"
+            value=""
+            onChange={(e) => {
+              setGoalDropdownTouched(true);
+              if (e.target.value && !goalPriority.includes(e.target.value)) {
+                handleGoalChange(e.target.value);
+                e.target.value = "";
+              }
+            }}
+            onFocus={() => setGoalDropdownTouched(true)}
+          >
+            <option value="" disabled>
+              {goalPriority.length === 0 
+                ? "Choose your goals (up to 3)" 
+                : `Selected ${goalPriority.length}/3 goals - Add more`}
+            </option>
+            {goalOptions.map((goal) => (
+              <option 
+                key={goal} 
+                value={goal}
+                disabled={goalPriority.includes(goal) || goalPriority.length >= 3}
+              >
+                {goal.charAt(0).toUpperCase() + goal.slice(1)}
+                {goalPriority.includes(goal) ? " ✓" : ""}
+              </option>
+            ))}
+          </select>
+          
+          {goalPriority.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-2">
+              {goalPriority.map((goal) => (
+                <span
+                  key={goal}
+                  className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-indigo-600 text-white"
+                >
+                  {goal.charAt(0).toUpperCase() + goal.slice(1)}
+                  <button
+                    type="button"
+                    onClick={() => handleGoalChange(goal)}
+                    className="ml-1 inline-flex items-center justify-center w-4 h-4 rounded-full hover:bg-indigo-700 focus:outline-none"
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+          
+          {goalDropdownTouched && goalPriority.length === 0 && (
+            <div className="text-red-400 text-xs mt-1">Please select at least one goal</div>
+          )}
+        </div>
 
         <input
           type="email"
@@ -206,8 +313,12 @@ export default function SignUpPage() {
           type="submit"
           className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-lg font-semibold transition"
         >
-          Create Account
+          Start Free Trial
         </button>
+        
+        <p className="text-xs text-gray-400 text-center">
+          No credit card required • 3 free questions • Upgrade anytime
+        </p>
       </form>
     </main>
   );

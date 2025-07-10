@@ -11,6 +11,7 @@ export async function POST(req: Request) {
       first_name,
       court_state,
       child_age,
+      children_count,
       parent_role,
       goal_priority,
     } = body;
@@ -30,6 +31,7 @@ export async function POST(req: Request) {
       first_name: first_name?.trim() || '',
       court_state: court_state?.trim() || '',
       child_age: parsedAge,
+      children_count: children_count?.trim() || '1',
       parent_role: parent_role?.trim() || '',
       goal_priority: goal_priority?.trim() || '',
       questions_used: 0,

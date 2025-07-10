@@ -30,7 +30,7 @@ export async function middleware(req: NextRequest) {
   const url = req.nextUrl.pathname;
   const bypass = process.env.DEV_BYPASS_SUBSCRIPTION === 'true';
 
-  // ✅ Define protected routes
+  // ✅ Define protected routes that require authentication
   const protectedPaths = ['/upload', '/history'];
   const isProtected = protectedPaths.some((path) => url.startsWith(path));
   const isApi = url.startsWith('/api');
@@ -44,25 +44,10 @@ export async function middleware(req: NextRequest) {
     }
   }
 
-  // ✅ Enforce subscription unless bypass is active
-  if (session && !bypass && (isProtected || isApi)) {
-    const { data: profile, error } = await supabase
-      .from('user_profiles')
-      .select('subscription_status')
-      .eq('id', session.user.id)
-      .single();
-
-    if (error) {
-      console.error('❌ Failed to fetch user profile in middleware:', error.message);
-      return NextResponse.redirect(new URL('/login', req.url));
-    }
-
-    if (!profile?.subscription_status) {
-      console.log('⛔ Blocked non-subscriber access to:', url);
-      return NextResponse.redirect(new URL('/payment', req.url));
-    }
-  }
-
+  // ✅ Allow free trial users access to the interface
+  // The question limit will be enforced in the API endpoints and frontend
+  // No need to block access at the middleware level for free trial users
+  
   return res;
 }
 
