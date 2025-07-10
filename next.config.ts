@@ -46,4 +46,4 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+export default nextConfig;// Force fresh Vercel deployment - Thu Jul 10 17:03:16 MDT 2025
