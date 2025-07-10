@@ -1,19 +1,6 @@
 {
-  "version": 2,
-  "name": "mycustodycoach",
-  "builds": [
-    {
-      "src": "package.json",
-      "use": "@vercel/next"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "/"
-    }
-  ],
-  "env": {
-    "NODE_ENV": "production"
-  }
+  "buildCommand": "rm -rf .next .vercel node_modules/.cache && npm run build",
+  "framework": "nextjs",
+  "cleanUrls": true,
+  "trailingSlash": false
 } 
