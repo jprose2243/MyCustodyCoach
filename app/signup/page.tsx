@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { supabase } from '@/src/lib/supabase-browser';
 
 const STATES = [
   'Alabama', 'Alaska', 'Arizona', 'Arkansas', 'California', 'Colorado',
@@ -71,9 +71,7 @@ export default function SignUpPage() {
     }
 
     try {
-      const supabase = createClientComponentClient();
-
-      const { data, error: signUpError } = await supabase.auth.signUp({
+          const { data, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
         options: {

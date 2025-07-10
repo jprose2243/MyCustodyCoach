@@ -6,18 +6,24 @@ export async function POST(request: Request) {
   const { access_token } = await request.json();
 
   if (!access_token) {
-    return NextResponse.json({ error: 'Missing access or refresh token' }, { status: 400 });
+    return NextResponse.json({ error: 'Missing access token' }, { status: 400 });
   }
 
-  const cookieStore = await cookies(); // ✅ must be awaited now
+  const cookieStore = await cookies();
+  let response = NextResponse.json({ message: 'Session set successfully' });
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value;
+        getAll() {
+          return cookieStore.getAll();
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) =>
+            response.cookies.set(name, value, options)
+          );
         },
       },
     }
@@ -33,5 +39,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ message: 'Session set successfully', user: data.user });
+  return NextResponse.json({ 
+    message: 'Session set successfully', 
+    user: data.user 
+  });
 }

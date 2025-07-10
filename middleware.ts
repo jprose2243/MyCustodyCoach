@@ -3,32 +3,36 @@ import type { NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 
 export async function middleware(req: NextRequest) {
-  const res = NextResponse.next();
+  let supabaseResponse = NextResponse.next({
+    request: req,
+  });
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        get(name) {
-          return req.cookies.get(name)?.value;
+        getAll() {
+          return req.cookies.getAll();
         },
-        set(name, value, options) {
-          res.cookies.set({ name, value, ...options });
-        },
-        remove(name, options) {
-          res.cookies.set({ name, value: '', ...options });
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) =>
+            supabaseResponse.cookies.set(name, value, options)
+          );
         },
       },
     }
   );
 
+  // IMPORTANT: Avoid writing any logic between createServerClient and
+  // supabase.auth.getUser(). A simple mistake could make it very hard to debug
+  // issues with users being randomly logged out.
+
   const {
-    data: { session },
-  } = await supabase.auth.getSession();
+    data: { user },
+  } = await supabase.auth.getUser();
 
   const url = req.nextUrl.pathname;
-  const bypass = process.env.DEV_BYPASS_SUBSCRIPTION === 'true';
 
   // ✅ Define protected routes that require authentication
   const protectedPaths = [
@@ -42,7 +46,7 @@ export async function middleware(req: NextRequest) {
   const isApi = url.startsWith('/api');
 
   // ✅ Block access if not logged in
-  if (!session && (isProtected || isApi)) {
+  if (!user && (isProtected || isApi)) {
     if (isApi) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     } else {
@@ -54,7 +58,7 @@ export async function middleware(req: NextRequest) {
   // The question limit will be enforced in the API endpoints and frontend
   // No need to block access at the middleware level for free trial users
   
-  return res;
+  return supabaseResponse;
 }
 
 export const config = {

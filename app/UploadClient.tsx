@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { supabase } from '@/src/lib/supabase-browser';
 
 // Error type for type-safe error handling
 interface ErrorWithMessage {
@@ -57,7 +57,6 @@ export default function UploadClient() {
   });
 
   const router = useRouter();
-  const supabase = createClientComponentClient();
 
   // Tone options based on recipient
   const toneOptions = {
