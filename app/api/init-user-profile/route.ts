@@ -20,9 +20,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Missing userId' }, { status: 400 });
     }
 
-    const parsedAge = Number(child_age);
-    if (isNaN(parsedAge) || parsedAge < 0) {
-      return NextResponse.json({ error: 'Invalid child age' }, { status: 400 });
+    // For login flow, child_age might not be provided - only validate if present
+    let parsedAge = 0;
+    if (child_age !== undefined) {
+      parsedAge = Number(child_age);
+      if (isNaN(parsedAge) || parsedAge < 0) {
+        return NextResponse.json({ error: 'Invalid child age' }, { status: 400 });
+      }
     }
 
     const insertPayload = {
@@ -43,7 +47,7 @@ export async function POST(req: Request) {
     // 🔍 Check if user already exists
     const { data: existing, error: existsError } = await supabase
       .from('user_profiles')
-      .select('id')
+      .select('*')
       .eq('id', userId)
       .single();
 
@@ -53,6 +57,11 @@ export async function POST(req: Request) {
     }
 
     if (!existing) {
+      // Only create new profile if we have all required fields (signup flow)
+      if (!first_name || !court_state || child_age === undefined) {
+        return NextResponse.json({ error: 'Missing required profile fields for new user' }, { status: 400 });
+      }
+
       const { error: insertError } = await supabase
         .from('user_profiles')
         .insert(insertPayload);
@@ -65,18 +74,30 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true, created: true });
     }
 
-    // 🛠 Update profile if it already exists
-    const { error: updateError } = await supabase
-      .from('user_profiles')
-      .update(insertPayload)
-      .eq('id', userId);
+    // 🛠 For existing users (login flow), only update basic fields if provided
+    const isLoginFlow = !first_name && !court_state && child_age === undefined;
+    
+    if (isLoginFlow) {
+      // Just return existing profile for login
+      return NextResponse.json({ 
+        success: true, 
+        existing: true,
+        subscription_status: existing.subscription_status 
+      });
+    } else {
+      // Update profile with new data (signup completion or profile update)
+      const { error: updateError } = await supabase
+        .from('user_profiles')
+        .update(insertPayload)
+        .eq('id', userId);
 
-    if (updateError) {
-      console.error('❌ Update error:', updateError.message);
-      return NextResponse.json({ error: 'Failed to update user profile' }, { status: 500 });
+      if (updateError) {
+        console.error('❌ Update error:', updateError.message);
+        return NextResponse.json({ error: 'Failed to update user profile' }, { status: 500 });
+      }
+
+      return NextResponse.json({ success: true, updated: true });
     }
-
-    return NextResponse.json({ success: true, updated: true });
   } catch (err: any) {
     console.error('❌ Unexpected error in init-user-profile:', err.message || err);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
