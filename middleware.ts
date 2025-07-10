@@ -31,7 +31,13 @@ export async function middleware(req: NextRequest) {
   const bypass = process.env.DEV_BYPASS_SUBSCRIPTION === 'true';
 
   // ✅ Define protected routes that require authentication
-  const protectedPaths = ['/upload', '/history'];
+  const protectedPaths = [
+    '/upload', 
+    '/history', 
+    '/evidence', 
+    '/parenting-time', 
+    '/settings'
+  ];
   const isProtected = protectedPaths.some((path) => url.startsWith(path));
   const isApi = url.startsWith('/api');
 
@@ -52,5 +58,12 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/upload', '/history', '/api/(.*)'],
+  matcher: [
+    '/upload', 
+    '/history', 
+    '/evidence/:path*', 
+    '/parenting-time', 
+    '/settings',
+    '/api/:path*'
+  ],
 };
