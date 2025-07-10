@@ -1,127 +1,125 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { supabase } from '@/src/lib/supabase-browser';
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 
+// Error type for type-safe error handling
 interface ErrorWithMessage {
   message: string;
 }
 
 function UpgradeModal({ onSubscribe, loading }: { onSubscribe: () => void; loading: boolean }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60">
-      <div className="bg-gray-900 rounded-xl shadow p-8 max-w-md w-full text-center border border-indigo-700">
-        <h1 className="text-2xl font-bold mb-4 text-indigo-400">Upgrade to Unlimited Access</h1>
-        <p className="mb-6 text-gray-200">
-          You've used your 3 free questions. Unlock full access to MyCustodyCoach for just{' '}
-          <strong>$20/month</strong>.
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-md w-full shadow-2xl">
+        <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+          🚀 Upgrade to Premium
+        </h3>
+        <p className="text-gray-600 dark:text-gray-300 mb-6">
+          You've reached your free trial limit. Upgrade now for unlimited questions and advanced features!
         </p>
-        <button
-          onClick={onSubscribe}
-          disabled={loading}
-          className={`w-full py-2 px-6 rounded-lg font-semibold transition text-white ${
-            loading ? 'bg-indigo-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700'
-          }`}
-        >
-          {loading ? 'Starting checkout...' : 'Subscribe Now'}
-        </button>
+        <div className="flex space-x-3">
+          <button
+            onClick={onSubscribe}
+            disabled={loading}
+            className="flex-1 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white font-semibold py-2 px-4 rounded-lg transition"
+          >
+            {loading ? 'Processing...' : 'Upgrade Now'}
+          </button>
+        </div>
       </div>
     </div>
   );
 }
 
 export default function UploadClient() {
-  const router = useRouter();
-
-  const [userId, setUserId] = useState('');
-  const [email, setEmail] = useState('');
-  const [firstName, setFirstName] = useState('');
-  const [courtState, setCourtState] = useState('');
-  const [childAge, setChildAge] = useState('');
-  const [goalPriority, setGoalPriority] = useState('');
-  const [parentRole, setParentRole] = useState('');
   const [prompt, setPrompt] = useState('');
+  const [tone, setTone] = useState('professional');
   const [recipient, setRecipient] = useState('court');
-  const [tone, setTone] = useState('calm');
   const [file, setFile] = useState<File | null>(null);
   const [fileName, setFileName] = useState('');
   const [response, setResponse] = useState('');
-  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [showUpgrade, setShowUpgrade] = useState(false);
-  const [upgradeLoading, setUpgradeLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [courtState, setCourtState] = useState('');
   const [questionsUsed, setQuestionsUsed] = useState(0);
   const [isSubscribed, setIsSubscribed] = useState(false);
+  const [showUpgrade, setShowUpgrade] = useState(false);
+  const [upgradeLoading, setUpgradeLoading] = useState(false);
+  const [goalPriority, setGoalPriority] = useState('');
+  const [expandedCategories, setExpandedCategories] = useState<{ [key: string]: boolean }>({
+    parenting_data: false,
+    quickstart: true,
+    specific: false,
+    emotional: false
+  });
 
-  // Recipient-based tone options
+  const router = useRouter();
+  const supabase = createClientComponentClient();
+
+  // Tone options based on recipient
   const toneOptions = {
     court: [
-      { value: 'formal', label: 'Formal', desc: 'Professional and respectful for court documents' },
-      { value: 'respectful', label: 'Respectful', desc: 'Courteous and deferential to the court' },
-      { value: 'direct', label: 'Direct', desc: 'Clear and to-the-point for legal clarity' },
-      { value: 'neutral', label: 'Neutral', desc: 'Objective and factual presentation' },
-      { value: 'assertive', label: 'Assertive', desc: 'Confident while remaining appropriate' },
+      { value: 'professional', label: '📋 Professional', desc: 'Formal, respectful, factual' },
+      { value: 'factual', label: '📊 Factual', desc: 'Data-driven, evidence-based' },
+      { value: 'diplomatic', label: '🤝 Diplomatic', desc: 'Balanced, non-confrontational' }
     ],
     lawyer: [
-      { value: 'professional', label: 'Professional', desc: 'Business-like communication' },
-      { value: 'collaborative', label: 'Collaborative', desc: 'Working together approach' },
-      { value: 'direct', label: 'Direct', desc: 'Clear and efficient communication' },
-      { value: 'formal', label: 'Formal', desc: 'Traditional legal communication style' },
-      { value: 'urgent', label: 'Urgent', desc: 'Time-sensitive matters' },
+      { value: 'professional', label: '⚖️ Professional', desc: 'Legal-focused, thorough' },
+      { value: 'urgent', label: '⚡ Urgent', desc: 'Time-sensitive, action-oriented' },
+      { value: 'collaborative', label: '🤝 Collaborative', desc: 'Solution-focused' }
     ],
     parent: [
-      { value: 'calm', label: 'Calm', desc: 'De-escalating and peaceful' },
-      { value: 'cooperative', label: 'Cooperative', desc: 'Willing to work together' },
-      { value: 'firm', label: 'Firm', desc: 'Setting clear boundaries' },
-      { value: 'empathetic', label: 'Empathetic', desc: 'Understanding and compassionate' },
-      { value: 'neutral', label: 'Neutral', desc: 'Factual and unemotional' },
-      { value: 'conciliatory', label: 'Conciliatory', desc: 'Seeking to resolve conflict' },
-      { value: 'protective', label: 'Protective', desc: 'Prioritizing child\'s wellbeing' },
+      { value: 'diplomatic', label: '🕊️ Diplomatic', desc: 'Peaceful, cooperative' },
+      { value: 'assertive', label: '💪 Assertive', desc: 'Confident but respectful' },
+      { value: 'empathetic', label: '❤️ Empathetic', desc: 'Understanding, child-focused' }
+    ],
+    universal: [
+      { value: 'professional', label: '📋 Professional', desc: 'Clear, respectful' },
+      { value: 'conversational', label: '💬 Conversational', desc: 'Natural, approachable' },
+      { value: 'informative', label: '📚 Informative', desc: 'Educational, explanatory' }
     ]
   };
 
+  const currentTones = toneOptions[recipient as keyof typeof toneOptions];
+  const remainingQuestions = Math.max(0, 3 - questionsUsed);
+
   useEffect(() => {
     const fetchSessionAndProfile = async () => {
-      const {
-        data: { session },
-        error: sessionError,
-      } = await supabase.auth.getSession();
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (session?.user) {
+          const response = await fetch('/api/init-user-profile', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId: session.user.id,
+              email: session.user.email,
+            }),
+          });
 
-      if (sessionError || !session?.user?.id) {
-        console.error('❌ No Supabase session:', sessionError);
-        setError('You are not logged in.');
-        return;
-      }
-
-      const id = session.user.id;
-      setUserId(id);
-      setEmail(session.user.email || '');
-
-      const { data: profile, error: profileError } = await supabase
-        .from('user_profiles')
-        .select('first_name, court_state, child_age, goal_priority, parent_role, questions_used, subscription_status')
-        .eq('id', id)
-        .single();
-
-      if (profileError) {
-        console.error('❌ Failed to load profile:', profileError.message);
-        return;
-      }
-
-      if (profile) {
-        setFirstName(profile.first_name || '');
-        setCourtState(profile.court_state || '');
-        setChildAge(profile.child_age || '');
-        setGoalPriority(profile.goal_priority || '');
-        setParentRole(profile.parent_role || '');
-        setQuestionsUsed(profile.questions_used || 0);
-        setIsSubscribed(profile.subscription_status || false);
+          if (response.ok) {
+            const profile = await response.json();
+            setFirstName(profile.first_name || '');
+            setCourtState(profile.court_state || '');
+            setQuestionsUsed(profile.questions_used || 0);
+            setIsSubscribed(profile.subscription_status || false);
+            setGoalPriority(profile.goal_priority || '');
+          }
+        } else {
+          router.push('/login');
+        }
+      } catch (error) {
+        console.error('Error fetching session/profile:', error);
+        router.push('/login');
       }
     };
 
     fetchSessionAndProfile();
-  }, []);
+  }, [router, supabase.auth]);
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -129,83 +127,101 @@ export default function UploadClient() {
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const uploaded = e.target.files?.[0];
-    if (!uploaded) return;
-
-    const validTypes = [
-      'application/pdf',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'text/plain',
-    ];
-    const isValid = validTypes.includes(uploaded.type) || uploaded.type.startsWith('image/');
-    if (!isValid) {
-      setError('❌ Invalid file type. Upload a PDF, DOCX, TXT, or image.');
+    // Only allow file upload for subscribed users
+    if (!isSubscribed) {
+      setError('File upload is a premium feature. Please upgrade to upload files for AI analysis.');
       return;
     }
 
-    setFile(uploaded);
-    setFileName(uploaded.name);
-    setError('');
+    const selectedFile = e.target.files?.[0];
+    if (selectedFile) {
+      setFile(selectedFile);
+      setFileName(selectedFile.name);
+      setError(''); // Clear any previous errors
+    }
   };
 
   const handleDeleteFile = () => {
     setFile(null);
     setFileName('');
-    // Clear the file input
+    // Reset the file input
     const fileInput = document.getElementById('contextFile') as HTMLInputElement;
-    if (fileInput) {
-      fileInput.value = '';
-    }
+    if (fileInput) fileInput.value = '';
   };
 
   const handleSubscribe = async () => {
     setUpgradeLoading(true);
     try {
-      const res = await fetch('/api/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, email }),
-      });
-      if (!res.ok) {
-        setUpgradeLoading(false);
-        alert('Something went wrong. Please try again.');
-        return;
-      }
-      const data = await res.json();
-      if (data?.url) {
-        window.location.href = data.url;
-      } else {
-        setUpgradeLoading(false);
-        alert('No checkout URL returned.');
-      }
-    } catch (err) {
+      router.push('/payment');
+    } catch (error) {
+      console.error('Error navigating to payment:', error);
+    } finally {
       setUpgradeLoading(false);
-      alert('Something went wrong. Please try again.');
     }
   };
 
   const handleSubmit = async () => {
+    if (loading) return;
+    if (!prompt.trim()) {
+      setError('Please enter a question');
+      return;
+    }
+
+    // Check if user has reached their limit
+    if (!isSubscribed && questionsUsed >= 3) {
+      setShowUpgrade(true);
+      return;
+    }
+
+    setLoading(true);
     setError('');
     setResponse('');
-    setLoading(true);
 
     try {
-      if (!userId) throw new Error('❌ You must be logged in to submit a question.');
-      if (!prompt.trim()) throw new Error('❌ Please enter a question.');
-
-      // Check if user has reached free limit and redirect to payment page
-      if (!isSubscribed && questionsUsed >= 3) {
-        console.log('🔄 Redirecting to payment page - free limit reached');
-        router.push('/payment');
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.user) {
+        router.push('/login');
         return;
       }
 
-      // For now, submit without file upload until bucket is configured
+      const userId = session.user.id;
+
+      // Handle file upload for subscribed users
+      let fileUrl = '';
+      if (file && isSubscribed) {
+        try {
+          const uploadFormData = new FormData();
+          uploadFormData.append('file', file);
+          uploadFormData.append('userId', userId);
+
+          const uploadRes = await fetch('/api/upload-to-supabase', {
+            method: 'POST',
+            body: uploadFormData,
+          });
+
+          if (uploadRes.ok) {
+            const uploadData = await uploadRes.json();
+            fileUrl = uploadData.fileUrl;
+          } else {
+            const uploadError = await uploadRes.json();
+            setError(`File upload failed: ${uploadError.message}`);
+            setLoading(false);
+            return;
+          }
+        } catch (uploadError) {
+          console.error('Upload error:', uploadError);
+          setError('File upload failed. Please try again.');
+          setLoading(false);
+          return;
+        }
+      }
+
       const formData = new FormData();
       formData.append('question', prompt.trim());
       formData.append('tone', tone);
       formData.append('recipient', recipient);
-      formData.append('fileUrl', ''); // Empty until bucket is configured
+      formData.append('fileUrl', fileUrl);
       formData.append('userId', userId);
 
       const res = await fetch('/api/generate-response', {
@@ -213,120 +229,104 @@ export default function UploadClient() {
         body: formData,
       });
 
-      const data = await res.json();
-      if (data?.error && data.error.toLowerCase().includes('free question limit')) {
-        console.log('🔄 Redirecting to payment page - API limit reached');
-        router.push('/payment');
-        return;
-      }
-      if (!res.ok || !data.result || typeof data.result !== 'string' || data.result.trim().length < 10) {
-        throw new Error(data.error || 'No meaningful response received. Try rephrasing your question.');
-      }
-
-      const finalResult = data.result.trim();
-      setResponse(finalResult);
-
-      // Update local state
-      if (!isSubscribed) {
+      if (res.ok) {
+        const data = await res.json();
+        setResponse(data.response);
         setQuestionsUsed(prev => prev + 1);
-      }
-
-      // ✅ Save log to Supabase sessions
-      const { error: insertError } = await supabase.from('sessions').insert({
-        user_id: userId,
-        prompt: prompt.trim(),
-        tone,
-        file_url: null,
-        result: finalResult,
-      });
-
-      if (insertError) {
-        console.error('⚠️ Failed to log session:', insertError.message);
+        
+        // Clear the form
+        setPrompt('');
+        setFile(null);
+        setFileName('');
+        const fileInput = document.getElementById('contextFile') as HTMLInputElement;
+        if (fileInput) fileInput.value = '';
       } else {
-        console.log('📊 Response logged to Supabase.');
+        const errorData = await res.json();
+        setError(errorData.message || 'Failed to generate response');
       }
-    } catch (err: unknown) {
-      let message = 'Unexpected error occurred.';
-      if (typeof err === 'object' && err !== null && 'message' in err && typeof (err as ErrorWithMessage).message === 'string') {
-        message = (err as ErrorWithMessage).message;
-      } else if (typeof err === 'string') {
-        message = err;
-      }
-      setError(message);
+    } catch (error: unknown) {
+      const errorMessage = (error as ErrorWithMessage)?.message || 'An error occurred';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
   };
 
-  const currentTones = toneOptions[recipient as keyof typeof toneOptions] || toneOptions.court;
-  const remainingQuestions = isSubscribed ? '∞' : Math.max(0, 3 - questionsUsed);
-
   // Organized example prompts by category with collapsible sections
   const exampleCategories = {
     'parenting_data': {
       title: '📊 Parenting Time & Data Integration',
-      subtitle: isSubscribed ? '✨ Using Your Personal Data' : '💡 Upgrade for Personal Data',
-      prompts: [
+      subtitle: isSubscribed ? '✨ Using Your Personal Data' : '🔒 Premium Feature - Upgrade Required',
+      prompts: isSubscribed ? [
         `📊 How much parenting time did I have this month? Summarize my visit statistics.`,
         `📅 Create a court-ready summary of my successful visits vs missed visits this year.`,
         `🌙 What's my overnight visit pattern? How does it support my ${goalPriority} goal?`,
+      ] : [
+        `🔒 Upload your calendar data to get personalized parenting time analysis`,
+        `🔒 Get court-ready summaries of your actual visit history with file uploads`,
+        `🔒 Track overnight patterns with real data - upgrade to access`,
       ]
     },
-    'custody_support': {
-      title: '⚖️ Traditional Custody Support',
-      subtitle: 'Court preparation and legal guidance',
+    'quickstart': {
+      title: '⚡ Quick Start Examples',
+      subtitle: 'Ready-to-use prompts',
       prompts: [
-        `⚖️ Help me prepare for a hearing in ${courtState} as a ${parentRole} of a ${childAge}-year-old.`,
-        `🛡️ How can I respond to gatekeeping behavior and still pursue ${goalPriority}?`,
-        `💬 Write a ${tone} reply to an accusatory message about my parenting time.`,
+        `Help me respond professionally to: "You're always 10 minutes late picking up [child name]"`,
+        `Draft a message asking to switch my weekend due to a family emergency.`,
+        `How do I request makeup time for a missed visit due to illness?`,
+        `Help me document when the other parent arrives late for exchanges.`
       ]
     },
-    'family_scenarios': {
-      title: '👶👧 Multiple Children & Family',
-      subtitle: 'Complex family situations and scheduling',
+    'specific': {
+      title: '🎯 Specific Situations',
+      subtitle: 'Context-aware responses',
       prompts: [
-        `👶👧 I have multiple children - how do I address different custody schedules in court?`,
-        `🏠 The other parent wants to relocate with our children. What are my options?`,
-        `🎒 How do I document when the other parent returns the children in poor condition?`,
+        `The other parent wants to take our child on vacation during my scheduled time. How should I respond?`,
+        `I need to address concerns about our child's behavior after visits. Draft a diplomatic message.`,
+        `Help me request a modification to our ${goalPriority === '50/50 custody' ? 'parenting plan for equal time' : 'current custody arrangement'}.`,
+        `Draft a response about missed child support payments while keeping it focused on the children.`
       ]
     },
-    'evidence_docs': {
-      title: '📋 Evidence & Documentation',
-      subtitle: 'Organizing and presenting your case',
+    'emotional': {
+      title: '💙 Emotional & Difficult Topics',
+      subtitle: 'Sensitive communication',
       prompts: [
-        `📋 I've organized evidence in my Evidence Organizer - how do I present it to my lawyer?`,
-        `📱 The other parent sends harassing texts. How should I document this for court?`,
-        `⚠️ How do I write an incident report for my evidence collection?`,
-      ]
-    },
-    'court_communications': {
-      title: '📑 Court Communications',
-      subtitle: 'Professional legal correspondence',
-      prompts: [
-        `📑 Draft a motion requesting makeup time for missed visits in ${courtState}.`,
-        `🤝 Write a professional email to the guardian ad litem about my concerns.`,
-        `📧 Help me respond to my lawyer's request for documentation updates.`,
-      ]
-    },
-    'crisis_emergency': {
-      title: '🚨 Crisis & Emergency',
-      subtitle: 'Urgent situations and violations',
-      prompts: [
-        `🚨 The other parent didn't return the children as scheduled. What steps do I take?`,
-        `🏥 My child was injured during the other parent's time. How do I document this?`,
-        `📞 How do I report a custody violation to the court in ${courtState}?`,
+        `Help me respond when the other parent makes personal attacks in messages.`,
+        `I need to address my child's emotional distress after visits. What should I say?`,
+        `Draft a message about introducing a new partner to our child.`,
+        `How do I communicate about therapy or counseling for our child?`
       ]
     }
   };
-
-  // State for tracking which categories are expanded
-  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
 
   const toggleCategory = (categoryKey: string) => {
     setExpandedCategories(prev => ({
       ...prev,
       [categoryKey]: !prev[categoryKey]
     }));
+  };
+
+  const handleDownloadResponse = () => {
+    if (!response) return;
+    
+    const content = `MyCustodyCoach Response
+Date: ${new Date().toLocaleDateString()}
+Recipient: ${recipient.charAt(0).toUpperCase() + recipient.slice(1)}
+Tone: ${tone.charAt(0).toUpperCase() + tone.slice(1)}
+Question: ${prompt}
+
+Response:
+${response}`;
+
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `MyCustodyCoach_Response_${new Date().toISOString().split('T')[0]}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -421,176 +421,205 @@ export default function UploadClient() {
           </div>
         )}
 
-        <section className="bg-white dark:bg-gray-800 shadow-md rounded-2xl p-6 space-y-6 ring-1 ring-gray-200 dark:ring-gray-700">
-          <div>
-            <label htmlFor="prompt" className="block text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300 mb-1">
-              Court Question
-            </label>
-            <textarea
-              id="prompt"
-              rows={5}
-              placeholder="Paste your court question here..."
-              className="w-full p-4 text-lg leading-relaxed bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-indigo-500"
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-            />
-          </div>
+        {/* Main Content Grid: Form + Examples Side by Side */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 min-h-[600px]">
+          {/* Main Form - Takes up 2/3 on large screens */}
+          <section className="lg:col-span-2 bg-white dark:bg-gray-800 shadow-md rounded-2xl p-6 space-y-6 ring-1 ring-gray-200 dark:ring-gray-700">
+            <div>
+              <label htmlFor="prompt" className="block text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300 mb-1">
+                Custody Question
+              </label>
+              <textarea
+                id="prompt"
+                rows={5}
+                placeholder="Paste your custody question here..."
+                className="w-full p-4 text-lg leading-relaxed bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-indigo-500"
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+              />
+            </div>
 
-          {/* Recipient Selection */}
-          <div>
-            <label htmlFor="recipient" className="block text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300 mb-1">
-              Who is this message for?
-            </label>
-            <select
-              id="recipient"
-              className="w-full p-3 text-lg bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-indigo-500"
-              value={recipient}
-              onChange={(e) => {
-                setRecipient(e.target.value);
-                // Reset tone when recipient changes
-                const newTones = toneOptions[e.target.value as keyof typeof toneOptions];
-                setTone(newTones[0].value);
-              }}
-            >
-              <option value="court">📋 Court/Judge</option>
-              <option value="lawyer">⚖️ Lawyer/Attorney</option>
-              <option value="parent">👨‍👩‍👧‍👦 Other Parent</option>
-            </select>
-          </div>
-
-          {/* Tone Selection */}
-          <div>
-            <label htmlFor="tone" className="block text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300 mb-1">
-              Tone & Style
-            </label>
-            <select
-              id="tone"
-              className="w-full p-3 text-lg bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-indigo-500"
-              value={tone}
-              onChange={(e) => setTone(e.target.value)}
-            >
-              {currentTones.map((toneOption) => (
-                <option key={toneOption.value} value={toneOption.value}>
-                  {toneOption.label} - {toneOption.desc}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* File Upload */}
-          <div>
-            <label htmlFor="contextFile" className="block text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300 mb-1">
-              Upload File (PDF, DOCX, TXT, or Image) - Optional
-            </label>
-            <input
-              id="contextFile"
-              type="file"
-              accept=".pdf,.docx,.txt,image/*"
-              onChange={handleFileChange}
-              className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 transition-all"
-            />
-            {fileName && (
-              <div className="mt-2 flex items-center justify-between bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
-                <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
-                  <span className="mr-2">📁</span>
-                  <span>{fileName}</span>
-                </div>
-                <button
-                  onClick={handleDeleteFile}
-                  className="text-red-500 hover:text-red-700 font-bold text-lg px-2 py-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition"
-                  title="Remove file"
-                >
-                  ✕
-                </button>
-              </div>
-            )}
-            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              Note: File upload is temporarily disabled while we configure storage. You can still ask questions without files.
-            </p>
-          </div>
-
-          <button
-            type="button"
-            onClick={handleSubmit}
-            disabled={loading || (!isSubscribed && questionsUsed >= 3) || !prompt.trim()}
-            className={`w-full py-3 px-6 text-lg font-semibold rounded-xl transition-all duration-200 ${
-              loading ? 'bg-indigo-300 cursor-not-allowed' : 
-              (!isSubscribed && questionsUsed >= 3) ? 'bg-gray-400 cursor-not-allowed' :
-              !prompt.trim() ? 'bg-gray-400 cursor-not-allowed' :
-              'bg-indigo-600 hover:bg-indigo-700 text-white'
-            }`}
-          >
-            {loading ? 'Generating...' : 
-             (!isSubscribed && questionsUsed >= 3) ? 'Upgrade to Continue' :
-             !prompt.trim() ? 'Enter a Question' :
-             'Generate Response'}
-          </button>
-
-          {error && (
-            <p className="bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 border border-red-300 dark:border-red-700 rounded-md px-4 py-2 text-sm mt-2">
-              {error}
-            </p>
-          )}
-        </section>
-
-        {/* Example Prompts with Collapsible Sections */}
-        <section className="bg-indigo-50 dark:bg-gray-800 p-5 rounded-xl shadow-inner text-sm text-gray-700 dark:text-gray-300">
-          <p className="font-semibold mb-2 text-indigo-700 dark:text-indigo-300 flex items-center">
-            🚀 Try These Powerful Examples - {isSubscribed ? (
-              <span className="flex items-center">
-                Including Your Personal Data!
-                <div className="relative ml-1 group">
-                  <div className="text-green-600 dark:text-green-400 cursor-help">
-                    🛡️
-                  </div>
-                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none w-64 z-10">
-                    <div className="font-semibold text-green-400 mb-1">🔒 Privacy First</div>
-                    <div className="text-xs leading-relaxed">
-                      Your personal data is encrypted, user-isolated, and never shared with third parties. We employ industry-standard security practices to protect your sensitive family information. Your privacy and data security are our highest priorities.
-                    </div>
-                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
-                  </div>
-                </div>
-              </span>
-            ) : 'Upgrade for Data Integration!'}
-          </p>
-          <p className="text-xs text-gray-600 dark:text-gray-400 mb-3">
-            {isSubscribed 
-              ? "✨ Subscribers get personalized responses using your logged parenting time and evidence data!"
-              : "💡 Subscribers can ask about their personal parenting time statistics and evidence!"
-            }
-          </p>
-          {Object.entries(exampleCategories).map(([key, category]) => (
-            <div key={key} className="mb-3">
-              <button
-                type="button"
-                onClick={() => toggleCategory(key)}
-                className="w-full text-left text-indigo-700 dark:text-indigo-300 font-semibold text-sm flex items-center justify-between p-3 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900 transition border border-indigo-200 dark:border-indigo-800"
+            {/* Recipient Selection */}
+            <div>
+              <label htmlFor="recipient" className="block text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300 mb-1">
+                Who is this message for?
+              </label>
+              <select
+                id="recipient"
+                className="w-full p-3 text-lg bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-indigo-500"
+                value={recipient}
+                onChange={(e) => {
+                  setRecipient(e.target.value);
+                  // Reset tone when recipient changes
+                  const newTones = toneOptions[e.target.value as keyof typeof toneOptions];
+                  setTone(newTones[0].value);
+                }}
               >
-                <div>
-                  <div>{category.title}</div>
-                  <div className="text-xs text-gray-600 dark:text-gray-400 font-normal">{category.subtitle}</div>
+                <option value="court">📋 Court/Judge</option>
+                <option value="lawyer">⚖️ Lawyer/Attorney</option>
+                <option value="parent">👨‍👩‍👧‍👦 Other Parent</option>
+                <option value="universal">🌐 Universal/General</option>
+              </select>
+            </div>
+
+            {/* Tone Selection */}
+            <div>
+              <label htmlFor="tone" className="block text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300 mb-1">
+                Tone & Style
+              </label>
+              <select
+                id="tone"
+                className="w-full p-3 text-lg bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-indigo-500"
+                value={tone}
+                onChange={(e) => setTone(e.target.value)}
+              >
+                {currentTones.map((toneOption) => (
+                  <option key={toneOption.value} value={toneOption.value}>
+                    {toneOption.label} - {toneOption.desc}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* File Upload */}
+            <div>
+              <label htmlFor="contextFile" className="block text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300 mb-1">
+                Upload File (PDF, DOCX, TXT, or Image)
+              </label>
+              <div className="relative">
+                <input
+                  id="contextFile"
+                  type="file"
+                  accept=".pdf,.docx,.txt,image/*"
+                  onChange={handleFileChange}
+                  disabled={!isSubscribed}
+                  className={`block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-gray-200 file:text-gray-500 ${
+                    isSubscribed 
+                      ? 'text-gray-700 dark:text-gray-300 cursor-pointer hover:file:bg-gray-300' 
+                      : 'text-gray-400 cursor-not-allowed opacity-60'
+                  }`}
+                />
+              </div>
+              {fileName && (
+                <div className="mt-2 flex items-center justify-between bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
+                  <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
+                    <span className="mr-2">📁</span>
+                    <span>{fileName}</span>
+                  </div>
+                  <button
+                    onClick={handleDeleteFile}
+                    className="text-red-500 hover:text-red-700 font-bold text-lg px-2 py-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition"
+                    title="Remove file"
+                  >
+                    ✕
+                  </button>
                 </div>
-                <span className="text-lg">{expandedCategories[key] ? '▲' : '▼'}</span>
-              </button>
-              {expandedCategories[key] && (
-                <div className="mt-2 pl-4 space-y-2">
-                  {category.prompts.map((p, i) => (
-                    <div key={i} className="text-xs text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 hover:underline cursor-pointer p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition" onClick={() => setPrompt(p)}>
-                      {p}
-                    </div>
-                  ))}
+              )}
+              {!isSubscribed && (
+                <div className="mt-2 text-xs text-red-500 dark:text-red-400">
+                  File upload is a premium feature. Please upgrade to upload files for AI analysis.
                 </div>
               )}
             </div>
-          ))}
-        </section>
+
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={loading || (!isSubscribed && questionsUsed >= 3) || !prompt.trim()}
+              className={`w-full py-3 px-6 text-lg font-semibold rounded-xl transition-all duration-200 ${
+                loading ? 'bg-indigo-300 cursor-not-allowed' : 
+                (!isSubscribed && questionsUsed >= 3) ? 'bg-gray-400 cursor-not-allowed' :
+                !prompt.trim() ? 'bg-gray-400 cursor-not-allowed' :
+                'bg-indigo-600 hover:bg-indigo-700 text-white'
+              }`}
+            >
+              {loading ? 'Generating...' : 
+               (!isSubscribed && questionsUsed >= 3) ? 'Upgrade to Continue' :
+               !prompt.trim() ? 'Enter a Question' :
+               'Generate Response'}
+            </button>
+
+            {error && (
+              <p className="bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 border border-red-300 dark:border-red-700 rounded-md px-4 py-2 text-sm mt-2">
+                {error}
+              </p>
+            )}
+          </section>
+
+          {/* Compact Example Prompts - Takes up 1/3 on large screens - Full Height */}
+          <section className="lg:col-span-1 bg-indigo-50 dark:bg-gray-800 rounded-xl shadow-inner flex flex-col">
+            <div className="p-4 flex-shrink-0">
+              <h3 className="font-semibold text-sm text-indigo-700 dark:text-indigo-300 mb-2 flex items-center">
+                🚀 Quick Examples
+                {isSubscribed && (
+                  <div className="relative ml-1 group">
+                    <div className="text-green-600 dark:text-green-400 cursor-help">
+                      🛡️
+                    </div>
+                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none w-64 z-10">
+                      <div className="font-semibold text-green-400 mb-1">🔒 Privacy First</div>
+                      <div className="text-xs leading-relaxed">
+                        Your personal data is encrypted, user-isolated, and never shared with third parties.
+                      </div>
+                      <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+                    </div>
+                  </div>
+                )}
+              </h3>
+              <p className="text-xs text-gray-600 dark:text-gray-400 mb-3">
+                {isSubscribed 
+                  ? "✨ Click any example to start"
+                  : "💡 Upgrade for data integration"
+                }
+              </p>
+            </div>
+              
+            <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-2">
+              {Object.entries(exampleCategories).map(([key, category]) => (
+                <div key={key}>
+                  <button
+                    type="button"
+                    onClick={() => toggleCategory(key)}
+                    className="w-full text-left text-indigo-700 dark:text-indigo-300 font-semibold text-xs flex items-center justify-between p-2 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900 transition border border-indigo-200 dark:border-indigo-800"
+                  >
+                    <div>
+                      <div className="text-xs">{category.title}</div>
+                    </div>
+                    <span className="text-sm">{expandedCategories[key] ? '▲' : '▼'}</span>
+                  </button>
+                  {expandedCategories[key] && (
+                    <div className="mt-1 pl-2 space-y-1">
+                      {category.prompts.map((p, i) => (
+                        <div 
+                          key={i} 
+                          className="text-xs text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 hover:underline cursor-pointer p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition leading-tight" 
+                          onClick={() => setPrompt(p)}
+                        >
+                          {p}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
+        </div>
 
         {response && (
           <section className="bg-green-100 dark:bg-gray-800 text-gray-800 dark:text-gray-100 p-6 rounded-2xl shadow-md space-y-4">
-            <h2 className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
-              MyCustodyCoach Response
-            </h2>
+            <div className="flex justify-between items-center">
+              <h2 className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
+                MyCustodyCoach Response
+              </h2>
+              <button
+                onClick={handleDownloadResponse}
+                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm rounded-lg transition"
+                title="Download response as text file"
+              >
+                📄 Download
+              </button>
+            </div>
             <div className="grid grid-cols-2 gap-4 text-sm">
               <p><strong>Date:</strong> {new Date().toLocaleDateString()}</p>
               <p><strong>Recipient:</strong> {recipient.charAt(0).toUpperCase() + recipient.slice(1)}</p>
