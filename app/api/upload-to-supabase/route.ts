@@ -7,7 +7,6 @@ import { Readable } from 'stream';
 import { IncomingMessage } from 'http';
 import formidable from 'formidable';
 import { rateLimit } from '@/src/middleware/rateLimit';
-import { supabase } from '@/src/lib/server-only/supabase-admin';
 
 export const config = {
   api: {
@@ -96,16 +95,26 @@ export async function POST(req: NextRequest) {
       );
     }
 
-         // Use the robust file upload service
-     const result = await handleFileUpload({
-       file: {
-         mimetype: file.mimetype,
-         size: file.size,
-         filepath: file.filepath,
-         originalFilename: file.originalFilename || null,
-       },
-       userId,
-     });
+    // Extract text content from the file for AI processing
+    let extractedText = '';
+    try {
+      extractedText = await extractTextFromFile(buffer, file.mimetype);
+      console.log(`📄 Extracted ${extractedText.length} characters from ${file.originalFilename}`);
+    } catch (textError) {
+      console.warn('⚠️ Text extraction failed, continuing without content:', textError);
+      // Continue with upload even if text extraction fails
+    }
+
+    // Use the robust file upload service
+    const result = await handleFileUpload({
+      file: {
+        mimetype: file.mimetype,
+        size: file.size,
+        filepath: file.filepath,
+        originalFilename: file.originalFilename || null,
+      },
+      userId,
+    });
 
     if ('error' in result) {
       return NextResponse.json(
@@ -114,7 +123,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    return NextResponse.json(result);
+    // Return enhanced response with extracted text
+    return NextResponse.json({
+      ...result,
+      extractedText: extractedText || '',
+      fileKey: result.path, // For compatibility with frontend
+    });
     
   } catch (err: unknown) {
     const sanitized = sanitizeErrorForClient(err as Error);

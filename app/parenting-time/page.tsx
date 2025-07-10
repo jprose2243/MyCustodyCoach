@@ -23,6 +23,8 @@ interface ParentingEntry {
 
 interface ParentingStats {
   total_entries: number;
+  past_visits: number;
+  upcoming_visits: number;
   successful_visits: number;
   missed_visits: number;
   makeup_visits: number;
@@ -110,6 +112,13 @@ export default function ParentingTimePage() {
     initializePage();
   }, [router]);
 
+  // Update visit counts when entries change
+  useEffect(() => {
+    if (entries.length > 0 && stats) {
+      updateVisitCounts();
+    }
+  }, [entries, stats?.total_entries]);
+
   const loadEntryTypes = async () => {
     const { data, error } = await supabase
       .from('parenting_entry_types')
@@ -154,11 +163,28 @@ export default function ParentingTimePage() {
 
     setStats(data || {
       total_entries: 0,
+      past_visits: 0,
+      upcoming_visits: 0,
       successful_visits: 0,
       missed_visits: 0,
       makeup_visits: 0,
       overnight_visits: 0
     });
+  };
+
+  // Calculate past and upcoming visits from current entries
+  const updateVisitCounts = () => {
+    if (!stats || entries.length === 0) return;
+    
+    const today = new Date().toISOString().split('T')[0];
+    const pastVisits = entries.filter(entry => entry.visit_date < today).length;
+    const upcomingVisits = entries.filter(entry => entry.visit_date >= today).length;
+
+    setStats(prevStats => ({
+      ...prevStats!,
+      past_visits: pastVisits,
+      upcoming_visits: upcomingVisits
+    }));
   };
 
   const handleAddEntry = async () => {
@@ -577,10 +603,14 @@ export default function ParentingTimePage() {
 
         {/* Statistics Dashboard */}
         {stats && (
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
             <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-              <div className="text-2xl font-bold text-indigo-600">{stats.total_entries}</div>
-              <div className="text-sm text-gray-600 dark:text-gray-400">Total Entries</div>
+              <div className="text-2xl font-bold text-indigo-600">{stats.past_visits}</div>
+              <div className="text-sm text-gray-600 dark:text-gray-400">Past Visits</div>
+            </div>
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+              <div className="text-2xl font-bold text-amber-600">{stats.upcoming_visits}</div>
+              <div className="text-sm text-gray-600 dark:text-gray-400">Current/Upcoming Visits</div>
             </div>
             <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
               <div className="text-2xl font-bold text-green-600">{stats.successful_visits}</div>
@@ -770,636 +800,37 @@ export default function ParentingTimePage() {
                                 }`}
                                 style={{ 
                                   backgroundColor: entry.color + '20',
-                                  borderLeft: !isMultiDay ? `3px solid ${entry.color}` : 'none',
-                                  borderTop: isMultiDay ? `3px solid ${entry.color}` : 'none',
-                                  borderBottom: isMultiDay ? `3px solid ${entry.color}` : 'none',
-                                  borderRight: isMultiDay && position?.isLast ? `3px solid ${entry.color}` : 'none',
-                                  borderTopLeftRadius: isMultiDay && position?.isFirst ? '4px' : '0',
-                                  borderBottomLeftRadius: isMultiDay && position?.isFirst ? '4px' : '0',
-                                  borderTopRightRadius: isMultiDay && position?.isLast ? '4px' : '0',
-                                  borderBottomRightRadius: isMultiDay && position?.isLast ? '4px' : '0',
-                                  marginLeft: isMultiDay && !position?.isFirst ? '-2px' : '0',
-                                  marginRight: isMultiDay && !position?.isLast ? '-2px' : '0',
-                                  zIndex: 10 + entryIndex
+                                  color: entry.color,
+                                  borderLeft: isMultiDay ? `3px solid ${entry.color}` : 'none'
                                 }}
-                                title={`${entry.type_description}${entry.child_name ? ` - ${entry.child_name}` : ''}${
-                                  isMultiDay ? ` (${multiDayInfo?.duration})` : ''
-                                }`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedEntry(entry);
+                                  setShowEntryDetails(true);
+                                }}
                               >
-                                {/* Only show icon and text on the first day of multi-day visits */}
-                                {(!isMultiDay || position?.isFirst) && (
-                                  <>
-                                    <span style={{ color: entry.color }}>{entry.icon}</span>
-                                    <span className="ml-1">{entry.type_description}</span>
-                                    {isMultiDay && (
-                                      <span className="ml-1 text-xs opacity-75">
-                                        ({multiDayInfo?.duration})
-                                      </span>
-                                    )}
-                                  </>
-                                )}
-                                
-                                {/* Show continuation indicator for middle/end days */}
-                                {isMultiDay && !position?.isFirst && (
-                                  <div className="h-full flex items-center justify-center">
-                                    <div className="w-2 h-0.5 bg-current opacity-50" style={{ color: entry.color }}></div>
-                                  </div>
+                                <span className="font-semibold">{entry.icon} {entry.type_description}</span>
+                                {entry.start_time && (
+                                  <div className="text-xs opacity-75">{formatTime(entry.start_time)}</div>
                                 )}
                               </div>
                             );
                           })}
-                          
                           {dayData.entries.length > 3 && (
-                            <div className="text-xs text-gray-500 text-center">
+                            <div className="text-xs text-gray-500 p-1">
                               +{dayData.entries.length - 3} more
                             </div>
                           )}
                         </div>
-
-                        {/* Add Entry Hint for Empty Days */}
-                        {!hasEntries && dayData.isCurrentMonth && (
-                          <div className="text-center mt-2">
-                            <span className="text-xs text-gray-400 opacity-0 group-hover:opacity-100 transition">+ Add</span>
-                          </div>
-                        )}
                       </div>
                     );
                   })}
                 </div>
               </div>
-
-              {/* Empty State for No Entries */}
-              {entries.length === 0 && (
-                <div className="text-center py-8 mt-6">
-                  <div className="text-4xl mb-3">📅</div>
-                  <h3 className="text-lg font-semibold text-gray-600 dark:text-gray-400 mb-2">
-                    No entries yet
-                  </h3>
-                  <p className="text-gray-500 dark:text-gray-500 mb-4">
-                    Click on any date to add your first parenting time entry.
-                  </p>
-                </div>
-              )}
             </div>
           )}
         </div>
       </div>
-
-      {/* Add Entry Modal */}
-      {showAddModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold">Add Parenting Time Entry</h2>
-                <button
-                  onClick={() => {
-                    setShowAddModal(false);
-                    resetForm();
-                  }}
-                  className="text-gray-500 hover:text-gray-700 text-2xl"
-                >
-                  ×
-                </button>
-              </div>
-
-              <div className="space-y-4">
-                {/* Entry Type */}
-                <div>
-                  <label className="block text-sm font-medium mb-2">Entry Type *</label>
-                  <select
-                    value={newEntry.entry_type}
-                    onChange={(e) => setNewEntry({...newEntry, entry_type: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700"
-                  >
-                    {entryTypes.map((type) => (
-                      <option key={type.name} value={type.name}>
-                        {type.icon} {type.description}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Multiple Days Checkbox */}
-                <div className="space-y-2">
-                  <label className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      checked={newEntry.is_multiple_days}
-                      onChange={(e) => {
-                        const isMultiple = e.target.checked;
-                        setNewEntry({
-                          ...newEntry, 
-                          is_multiple_days: isMultiple,
-                          end_date: isMultiple ? newEntry.visit_date : '',
-                          is_overnight: isMultiple ? true : newEntry.is_overnight // Auto-set overnight for multi-day
-                        });
-                      }}
-                      className="rounded"
-                    />
-                    <span className="text-sm font-medium">Multiple days (weekend, holiday, vacation)</span>
-                  </label>
-                  {newEntry.is_multiple_days && (
-                    <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-2">
-                      <p className="text-xs text-yellow-700 dark:text-yellow-300">
-                        💡 <strong>Tip:</strong> Perfect for tracking extended visits like weekends (Fri-Sun), holidays, or vacation time. Duration will be calculated automatically.
-                      </p>
-                    </div>
-                  )}
-                </div>
-
-                {/* Multiple Children Checkbox */}
-                <div className="space-y-2">
-                  <label className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      checked={newEntry.is_multiple_children}
-                      onChange={(e) => setNewEntry({...newEntry, is_multiple_children: e.target.checked})}
-                      className="rounded"
-                    />
-                                         <span className="text-sm font-medium">Multiple children (visits involving more than one child)</span>
-                   </label>
-                   {newEntry.is_multiple_children && (
-                     <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-2">
-                       <p className="text-xs text-yellow-700 dark:text-yellow-300">
-                         💡 <strong>Tip:</strong> Perfect for tracking visits involving multiple children. Enter each child's name on a separate line in the children field below.
-                       </p>
-                     </div>
-                   )}
-                </div>
-
-                {/* Date Fields */}
-                {newEntry.is_multiple_days ? (
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium mb-2">Start Date *</label>
-                      <input
-                        type="date"
-                        value={newEntry.visit_date}
-                        onChange={(e) => setNewEntry({...newEntry, visit_date: e.target.value})}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium mb-2">End Date *</label>
-                      <input
-                        type="date"
-                        value={newEntry.end_date}
-                        min={newEntry.visit_date}
-                        onChange={(e) => setNewEntry({...newEntry, end_date: e.target.value})}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700"
-                      />
-                    </div>
-                  </div>
-                ) : (
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Date *</label>
-                    <input
-                      type="date"
-                      value={newEntry.visit_date}
-                      onChange={(e) => setNewEntry({...newEntry, visit_date: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700"
-                    />
-                  </div>
-                )}
-
-                {/* Duration Display for Multi-day */}
-                {newEntry.is_multiple_days && newEntry.visit_date && newEntry.end_date && (
-                  <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
-                    <div className="flex items-center space-x-2">
-                      <span className="text-blue-600 dark:text-blue-400">📅</span>
-                      <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
-                        Duration: {calculateDuration(newEntry.visit_date, newEntry.end_date)}
-                      </span>
-                    </div>
-                  </div>
-                )}
-
-                {/* Time Range */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-2">
-                      {newEntry.is_multiple_days ? `Start Time (${formatDate(newEntry.visit_date)})` : 'Start Time'}
-                    </label>
-                    <input
-                      type="time"
-                      value={newEntry.start_time}
-                      onChange={(e) => setNewEntry({...newEntry, start_time: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-2">
-                      {newEntry.is_multiple_days && newEntry.end_date 
-                        ? `End Time (${formatDate(newEntry.end_date)})` 
-                        : 'End Time'
-                      }
-                    </label>
-                    <input
-                      type="time"
-                      value={newEntry.end_time}
-                      onChange={(e) => setNewEntry({...newEntry, end_time: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700"
-                    />
-                  </div>
-                </div>
-
-                {/* Child Name and Location */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-2">
-                      {newEntry.is_multiple_children ? 'Children Names' : 'Child Name'}
-                    </label>
-                    {newEntry.is_multiple_children ? (
-                      <textarea
-                        value={newEntry.child_name}
-                        onChange={(e) => setNewEntry({...newEntry, child_name: e.target.value})}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700"
-                        rows={3}
-                        placeholder="Enter each child's name on a separate line&#10;e.g.:&#10;Emma (age 8)&#10;Jake (age 12)"
-                      />
-                    ) : (
-                      <input
-                        type="text"
-                        value={newEntry.child_name}
-                        onChange={(e) => setNewEntry({...newEntry, child_name: e.target.value})}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700"
-                        placeholder="Child's name"
-                      />
-                    )}
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Location</label>
-                    <input
-                      type="text"
-                      value={newEntry.location}
-                      onChange={(e) => setNewEntry({...newEntry, location: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700"
-                      placeholder="Where did the visit take place?"
-                    />
-                  </div>
-                </div>
-
-                {/* Checkboxes */}
-                <div className="space-y-3">
-                  <label className="flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={newEntry.is_overnight}
-                      onChange={(e) => setNewEntry({...newEntry, is_overnight: e.target.checked})}
-                      className="mr-2"
-                      disabled={newEntry.is_multiple_days} // Auto-set for multi-day only
-                    />
-                    <span className={newEntry.is_multiple_days ? 'text-gray-500' : ''}>
-                      Overnight visit
-                      {newEntry.is_multiple_days && (
-                        <span className="text-xs text-gray-500 ml-1">(automatically set for multi-day)</span>
-                      )}
-                    </span>
-                  </label>
-                  <label className="flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={newEntry.other_parent_present}
-                      onChange={(e) => setNewEntry({...newEntry, other_parent_present: e.target.checked})}
-                      className="mr-2"
-                    />
-                    Other parent present
-                  </label>
-                </div>
-
-                {/* Notes */}
-                <div>
-                  <label className="block text-sm font-medium mb-2">Notes</label>
-                  <textarea
-                    value={newEntry.notes}
-                    onChange={(e) => setNewEntry({...newEntry, notes: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700"
-                    rows={3}
-                    placeholder="Any additional notes or observations..."
-                  />
-                </div>
-
-                {/* Action Buttons */}
-                <div className="flex justify-end space-x-3 pt-4">
-                  <button
-                    onClick={() => {
-                      setShowAddModal(false);
-                      resetForm();
-                    }}
-                    className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleAddEntry}
-                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition"
-                  >
-                    Add Entry
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Entry Details Modal */}
-      {showEntryDetails && selectedEntry && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg max-w-lg w-full">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold">Entry Details</h2>
-                <button
-                  onClick={() => setShowEntryDetails(false)}
-                  className="text-gray-500 hover:text-gray-700 text-2xl"
-                >
-                  ×
-                </button>
-              </div>
-
-              <div className="space-y-4">
-                {/* Entry Type Badge */}
-                <div className="flex items-center space-x-3">
-                  <span style={{ color: selectedEntry.color }} className="text-2xl">
-                    {selectedEntry.icon}
-                  </span>
-                  <span 
-                    className="px-3 py-1 rounded-full text-sm font-medium text-white"
-                    style={{ backgroundColor: selectedEntry.color }}
-                  >
-                    {selectedEntry.type_description}
-                  </span>
-                </div>
-
-                {/* Date and Time */}
-                <div className="grid grid-cols-1 gap-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">
-                      Date
-                    </label>
-                    <p className="text-lg font-semibold">{formatDate(selectedEntry.visit_date)}</p>
-                  </div>
-                  
-                  {selectedEntry.start_time && selectedEntry.end_time && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">
-                        Time
-                      </label>
-                      <p className="text-lg">
-                        {formatTime(selectedEntry.start_time)} - {formatTime(selectedEntry.end_time)}
-                      </p>
-                    </div>
-                  )}
-                </div>
-
-                {/* Child and Location */}
-                <div className="grid grid-cols-1 gap-3">
-                  {selectedEntry.child_name && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">
-                        Child/Children
-                      </label>
-                      <p className="whitespace-pre-line">{selectedEntry.child_name}</p>
-                    </div>
-                  )}
-                  
-                  {selectedEntry.location && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">
-                        Location
-                      </label>
-                      <p>{selectedEntry.location}</p>
-                    </div>
-                  )}
-                </div>
-
-                {/* Special Flags */}
-                {(selectedEntry.is_overnight || selectedEntry.other_parent_present) && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">
-                      Additional Information
-                    </label>
-                    <div className="flex flex-wrap gap-2">
-                      {selectedEntry.is_overnight && (
-                        <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded-full text-xs font-medium">
-                          🌙 Overnight Visit
-                        </span>
-                      )}
-                      {selectedEntry.other_parent_present && (
-                        <span className="px-2 py-1 bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 rounded-full text-xs font-medium">
-                          👥 Other Parent Present
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Notes */}
-                {selectedEntry.notes && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">
-                      Notes
-                    </label>
-                    <div className="bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
-                      <p className="whitespace-pre-line text-sm">{selectedEntry.notes}</p>
-                    </div>
-                  </div>
-                )}
-
-                {/* Close Button */}
-                <div className="flex justify-end pt-4">
-                  <button
-                    onClick={() => setShowEntryDetails(false)}
-                    className="px-6 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition"
-                  >
-                    Close
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-                  </div>
-        )}
-
-      {/* Calendar Sync Modal */}
-      {showCalendarSync && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold">Calendar Sync</h2>
-                <button
-                  onClick={() => setShowCalendarSync(false)}
-                  className="text-gray-500 hover:text-gray-700 text-2xl"
-                >
-                  ×
-                </button>
-              </div>
-
-              <div className="space-y-6">
-                {/* Feature Description */}
-                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-                  <h3 className="font-semibold text-blue-800 dark:text-blue-200 mb-2">
-                    📅 Calendar Integration - Coming Soon!
-                  </h3>
-                  <p className="text-sm text-blue-700 dark:text-blue-300">
-                    We're working on integrating with Google Calendar, Outlook, and Apple Calendar to sync your parenting time entries automatically. 
-                    This feature will be available in a future update once MyCustodyCoach grows!
-                  </p>
-                </div>
-
-                {/* Available Providers */}
-                <div>
-                  <h3 className="text-lg font-semibold mb-4">Available Calendar Providers</h3>
-                  <div className="space-y-3">
-                    {/* Google Calendar */}
-                    <div className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-600 rounded-lg">
-                      <div className="flex items-center space-x-3">
-                        <span className="text-2xl">🗓️</span>
-                        <div>
-                          <h4 className="font-semibold">Google Calendar</h4>
-                          <p className="text-sm text-gray-600 dark:text-gray-400">
-                            Sync with your Google account calendar
-                          </p>
-                        </div>
-                      </div>
-                      <button 
-                        disabled
-                        className="px-4 py-2 bg-gray-400 text-white rounded-lg cursor-not-allowed"
-                      >
-                        Coming Soon
-                      </button>
-                    </div>
-
-                    {/* Outlook Calendar */}
-                    <div className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-600 rounded-lg">
-                      <div className="flex items-center space-x-3">
-                        <span className="text-2xl">📅</span>
-                        <div>
-                          <h4 className="font-semibold">Outlook Calendar</h4>
-                          <p className="text-sm text-gray-600 dark:text-gray-400">
-                            Sync with Microsoft Outlook/Office 365
-                          </p>
-                        </div>
-                      </div>
-                      <button 
-                        disabled
-                        className="px-4 py-2 bg-gray-400 text-white rounded-lg cursor-not-allowed"
-                      >
-                        Coming Soon
-                      </button>
-                    </div>
-
-                    {/* Apple Calendar */}
-                    <div className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-600 rounded-lg">
-                      <div className="flex items-center space-x-3">
-                        <span className="text-2xl">🍎</span>
-                        <div>
-                          <h4 className="font-semibold">Apple Calendar</h4>
-                          <p className="text-sm text-gray-600 dark:text-gray-400">
-                            Sync with iCloud Calendar (Coming Soon)
-                          </p>
-                        </div>
-                      </div>
-                      <button 
-                        disabled 
-                        className="px-4 py-2 bg-gray-400 text-white rounded-lg cursor-not-allowed"
-                      >
-                        Coming Soon
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Privacy Settings */}
-                <div>
-                  <h3 className="text-lg font-semibold mb-4">Privacy Settings</h3>
-                  <div className="space-y-3">
-                    <label className="flex items-center space-x-2">
-                      <input type="checkbox" className="rounded" defaultChecked />
-                      <span className="text-sm">Include child names in calendar events</span>
-                    </label>
-                    <label className="flex items-center space-x-2">
-                      <input type="checkbox" className="rounded" />
-                      <span className="text-sm">Include location information</span>
-                    </label>
-                    <label className="flex items-center space-x-2">
-                      <input type="checkbox" className="rounded" />
-                      <span className="text-sm">Include notes and details</span>
-                    </label>
-                    <label className="flex items-center space-x-2">
-                      <input type="checkbox" className="rounded" />
-                      <span className="text-sm">Use generic titles (e.g., "Parenting Time" instead of specific entry types)</span>
-                    </label>
-                  </div>
-                </div>
-
-                {/* Sync Options */}
-                <div>
-                  <h3 className="text-lg font-semibold mb-4">Sync Options</h3>
-                  <div className="space-y-3">
-                    <div>
-                      <label className="block text-sm font-medium mb-2">Sync Direction</label>
-                      <select className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700">
-                        <option value="export">Export Only (MyCustodyCoach → External Calendar)</option>
-                        <option value="import">Import Only (External Calendar → MyCustodyCoach)</option>
-                        <option value="bidirectional">Bidirectional (Both Directions)</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium mb-2">Sync Frequency</label>
-                      <select className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700">
-                        <option value="manual">Manual Only</option>
-                        <option value="hourly">Every Hour</option>
-                        <option value="daily">Daily</option>
-                        <option value="weekly">Weekly</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Sync Status */}
-                {syncStatus && (
-                  <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
-                    <p className="text-green-700 dark:text-green-300">{syncStatus}</p>
-                  </div>
-                )}
-
-                {/* Action Buttons */}
-                <div className="flex justify-between pt-4">
-                  <button
-                    onClick={() => setShowCalendarSync(false)}
-                    className="px-6 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition"
-                  >
-                    Close
-                  </button>
-                  <div className="space-x-3">
-                    <button
-                      disabled
-                      className="px-6 py-2 bg-gray-400 text-white rounded-lg cursor-not-allowed"
-                    >
-                      Available After Launch
-                    </button>
-                  </div>
-                </div>
-
-                {/* Feature Note */}
-                <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
-                  <h4 className="font-semibold text-yellow-800 dark:text-yellow-200 mb-2">
-                    🚧 Beta Feature
-                  </h4>
-                  <p className="text-sm text-yellow-700 dark:text-yellow-300">
-                    Calendar sync is currently in development. Full integration with external calendar providers 
-                    requires additional setup and authentication. For now, this demonstrates the planned functionality.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </main>
   );
-} 
+}

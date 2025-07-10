@@ -32,6 +32,9 @@ async function fetchParentingTimeData(userId: string) {
       .eq('user_id', userId)
       .single();
 
+    // Get current date for separating past/upcoming
+    const today = new Date().toISOString().split('T')[0];
+    
     // Fetch recent entries (last 30 days)
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -43,12 +46,28 @@ async function fetchParentingTimeData(userId: string) {
       .gte('visit_date', thirtyDaysAgo.toISOString().split('T')[0])
       .order('visit_date', { ascending: false });
 
-    // Fetch all entries for broader context if needed
+    // Fetch all entries for broader context
     const { data: allEntries, error: allEntriesError } = await supabase
       .from('parenting_calendar_view')
       .select('visit_date, entry_type, child_name, is_overnight')
       .eq('user_id', userId)
       .order('visit_date', { ascending: false });
+
+    // Fetch past visits (before today)
+    const { data: pastEntries, error: pastError } = await supabase
+      .from('parenting_calendar_view')
+      .select('visit_date, entry_type, child_name, is_overnight')
+      .eq('user_id', userId)
+      .lt('visit_date', today)
+      .order('visit_date', { ascending: false });
+
+    // Fetch upcoming visits (today and future)
+    const { data: upcomingEntries, error: upcomingError } = await supabase
+      .from('parenting_calendar_view')
+      .select('visit_date, entry_type, child_name, is_overnight')
+      .eq('user_id', userId)
+      .gte('visit_date', today)
+      .order('visit_date', { ascending: true });
 
     if (statsError && statsError.code !== 'PGRST116') {
       console.error('Error fetching parenting stats:', statsError);
@@ -62,6 +81,14 @@ async function fetchParentingTimeData(userId: string) {
       console.error('Error fetching all entries:', allEntriesError);
     }
 
+    if (pastError) {
+      console.error('Error fetching past entries:', pastError);
+    }
+
+    if (upcomingError) {
+      console.error('Error fetching upcoming entries:', upcomingError);
+    }
+
     return {
       stats: stats || {
         total_entries: 0,
@@ -71,17 +98,25 @@ async function fetchParentingTimeData(userId: string) {
         overnight_visits: 0
       },
       recentEntries: recentEntries || [],
-      allEntries: allEntries || []
+      allEntries: allEntries || [],
+      pastEntries: pastEntries || [],
+      upcomingEntries: upcomingEntries || []
     };
   } catch (error) {
     console.error('Error in fetchParentingTimeData:', error);
-    return { stats: null, recentEntries: [], allEntries: [] };
+    return { 
+      stats: null, 
+      recentEntries: [], 
+      allEntries: [],
+      pastEntries: [],
+      upcomingEntries: []
+    };
   }
 }
 
 // Helper function to format parenting time data for AI context
 function formatParentingTimeContext(data: any): string {
-  const { stats, recentEntries, allEntries } = data;
+  const { stats, recentEntries, allEntries, pastEntries, upcomingEntries } = data;
   
   if (!stats || stats.total_entries === 0) {
     return '\n\nParenting Time Context: This user has not logged any parenting time entries yet. If they ask about parenting time, suggest they start tracking their visits in the Parenting Time Log.';
@@ -89,13 +124,26 @@ function formatParentingTimeContext(data: any): string {
 
   let context = '\n\nParenting Time Context (User\'s Personal Data):';
   
-  // Overall statistics
+  // Overall statistics with past/upcoming breakdown
   context += `\nOverall Statistics:
-- Total entries logged: ${stats.total_entries}
+- Past visits: ${pastEntries.length}
+- Upcoming visits: ${upcomingEntries.length}
 - Successful visits: ${stats.successful_visits}
 - Missed visits: ${stats.missed_visits}
 - Makeup visits: ${stats.makeup_visits}
 - Overnight visits: ${stats.overnight_visits}`;
+
+  // Upcoming visits preview
+  if (upcomingEntries.length > 0) {
+    context += `\n\nUpcoming Visits (Next ${Math.min(upcomingEntries.length, 5)}):`;
+    upcomingEntries.slice(0, 5).forEach((entry: any) => {
+      const date = new Date(entry.visit_date).toLocaleDateString();
+      const type = entry.type_description || entry.entry_type;
+      const child = entry.child_name ? ` with ${entry.child_name}` : '';
+      const overnight = entry.is_overnight ? ' (overnight)' : '';
+      context += `\n- ${date}: ${type}${child}${overnight}`;
+    });
+  }
 
   // Recent activity (last 30 days)
   if (recentEntries.length > 0) {
@@ -113,7 +161,7 @@ function formatParentingTimeContext(data: any): string {
     });
 
     // Recent specific visits
-    context += '\n\nRecent Visits:';
+    context += '\n\nRecent Past Visits:';
     recentEntries.slice(0, 10).forEach((entry: any) => {
       const date = new Date(entry.visit_date).toLocaleDateString();
       const type = entry.type_description || entry.entry_type;
@@ -141,19 +189,23 @@ function formatParentingTimeContext(data: any): string {
 - This month: ${thisMonthEntries.length} entries  
 - This year: ${thisYearEntries.length} entries`;
 
-  context += '\n\nNote: When answering questions about parenting time, use this actual logged data to provide specific, personalized responses. Be accurate with dates, counts, and patterns from their real entries.';
+  context += '\n\nNote: When answering questions about parenting time, use this actual logged data to provide specific, personalized responses. Be accurate with dates, counts, and patterns from their real entries. Pay special attention to upcoming visits for planning purposes.';
 
   return context;
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const formData = await request.formData();
-    const question = formData.get('question') as string;
-    const tone = formData.get('tone') as string;
-    const recipient = formData.get('recipient') as string;
-    const fileUrl = formData.get('fileUrl') as string;
-    const userId = formData.get('userId') as string;
+    const body = await request.json();
+    const {
+      prompt: question,
+      recipient,
+      tone,
+      fileKey,
+      extractedText,
+      userId,
+      // firstName, courtState, goalPriority - reserved for future use
+    } = body;
 
     if (!question || !tone || !userId) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
@@ -199,6 +251,11 @@ export async function POST(request: NextRequest) {
         contextPrompt = `You are helping a ${profile.parent_role || 'parent'} in ${profile.court_state || 'the US'} prepare a ${tone} response. The child is ${profile.child_age || 'school-age'} and the parent's goal is ${profile.goal_priority || 'the child\'s best interests'}.`;
     }
 
+    // Add file content context if available
+    if (extractedText && extractedText.trim()) {
+      contextPrompt += `\n\nDocument Context (from uploaded file):\n${extractedText.slice(0, 8000)}${extractedText.length > 8000 ? '\n\n...[content truncated]' : ''}`;
+    }
+
     // Check if this is a parenting time related query and add relevant context
     if (isParentingTimeQuery(question) && isSubscribed) {
       console.log('🔍 Detected parenting time query, fetching user data...');
@@ -207,8 +264,8 @@ export async function POST(request: NextRequest) {
       contextPrompt += parentingContext;
     }
 
-    // Generate response using OpenAI
-    const result = await generateResponse(question, tone, fileUrl, contextPrompt);
+    // Generate response using OpenAI (pass fileKey for compatibility, but rely on extractedText)
+    const result = await generateResponse(question, tone, fileKey || '', contextPrompt);
 
     // Update question count for non-subscribers
     if (!isSubscribed) {

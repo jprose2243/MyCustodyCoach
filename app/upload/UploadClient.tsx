@@ -218,7 +218,7 @@ export default function UploadClient() {
       }
 
       const result = await generateResponse.json();
-      setResponse(result.response);
+      setResponse(result.result); // Updated to match backend response structure
 
       // Update questions used count for non-subscribers
       if (!isSubscribed) {
@@ -261,6 +261,76 @@ export default function UploadClient() {
         `Draft a message asking to switch my weekend due to a family emergency.`,
         `How do I request makeup time for a missed visit due to illness?`,
         `Help me document when the other parent arrives late for exchanges.`
+      ]
+    },
+    'documents': {
+      title: '💼 Document Preparation',
+      subtitle: 'Court forms & paperwork',
+      prompts: [
+        `Help me prepare a motion to modify parenting time with supporting evidence.`,
+        `Draft an affidavit about missed visits and their impact on our child.`,
+        `What documentation do I need for a contempt of court filing?`,
+        `Help me organize evidence for my upcoming custody hearing.`
+      ]
+    },
+    'coparenting': {
+      title: '🤝 Co-Parenting Communication',
+      subtitle: 'Building better relationships',
+      prompts: [
+        `How do I set healthy boundaries with my co-parent while staying collaborative?`,
+        `Draft a message about establishing consistent rules between households.`,
+        `Help me address disagreements about our child's activities respectfully.`,
+        `How do I communicate about major decisions when we disagree?`
+      ]
+    },
+    'court_prep': {
+      title: '⚖️ Court Preparation',
+      subtitle: 'Legal proceedings support',
+      prompts: [
+        `What should I expect at my first custody hearing?`,
+        `Help me prepare my testimony about what's best for our child.`,
+        `How do I present evidence of the other parent's concerning behavior?`,
+        `What questions might the judge ask me during the hearing?`
+      ]
+    },
+    'medical': {
+      title: '🏥 Medical & Health Decisions',
+      subtitle: 'Healthcare coordination',
+      prompts: [
+        `The other parent won't share medical information about our child. What are my rights?`,
+        `How do I handle disagreements about medical treatment for our child?`,
+        `Draft a message about scheduling our child's therapy appointments.`,
+        `What documentation do I need for my child's health insurance coverage?`
+      ]
+    },
+    'education': {
+      title: '🎓 School & Education',
+      subtitle: 'Academic decisions & support',
+      prompts: [
+        `How do I ensure both parents receive school communications?`,
+        `Draft a message about our child's declining grades and how to help.`,
+        `The other parent wants to change schools. How do I respond?`,
+        `Help me communicate with teachers about our custody situation.`
+      ]
+    },
+    'holidays': {
+      title: '🎄 Holidays & Vacation Planning',
+      subtitle: 'Special occasions & travel',
+      prompts: [
+        `Help me negotiate holiday schedules that work for everyone.`,
+        `The other parent scheduled vacation during my time. How should I respond?`,
+        `How do I plan summer vacation with reasonable notice requirements?`,
+        `Draft a message about splitting holiday costs and traditions.`
+      ]
+    },
+    'emergency': {
+      title: '🚨 Emergency Situations',
+      subtitle: 'Urgent matters & safety',
+      prompts: [
+        `My child was injured during the other parent's time. What should I do?`,
+        `How do I handle a situation where my child doesn't want to go to the other parent?`,
+        `The other parent hasn't returned our child as scheduled. What are my options?`,
+        `Help me document a safety concern about the other parent's home.`
       ]
     },
     'specific': {
@@ -333,7 +403,7 @@ ${response}`;
                 className="px-3 py-1 rounded-lg bg-purple-100 hover:bg-purple-200 text-purple-700 font-semibold text-sm transition"
                 title="Organize your evidence"
               >
-                📂 Evidence
+                📂 Evidence Organizer
               </button>
               <button
                 onClick={() => router.push('/parenting-time')}
@@ -343,11 +413,18 @@ ${response}`;
                 📅 Parenting Time
               </button>
               <button
+                onClick={() => router.push('/communication')}
+                className="px-3 py-1 rounded-lg bg-blue-100 hover:bg-blue-200 text-blue-700 font-semibold text-sm transition"
+                title="Track communications and messages"
+              >
+                💬 Communication Log
+              </button>
+              <button
                 onClick={() => router.push('/support')}
                 className="px-3 py-1 rounded-lg bg-green-100 hover:bg-green-200 text-green-700 font-semibold text-sm transition"
                 title="Get support"
               >
-                💬 Support
+                🆘 Support
               </button>
               <button
                 onClick={() => router.push('/settings')}
@@ -469,9 +546,21 @@ ${response}`;
 
             {/* File Upload */}
             <div>
-              <label htmlFor="contextFile" className="block text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300 mb-1">
-                Upload File (PDF, DOCX, TXT, or Image)
-              </label>
+              <div className="flex items-center gap-2 mb-1">
+                <label htmlFor="contextFile" className="block text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">
+                  Upload File (PDF, DOCX, TXT, or Image)
+                </label>
+                <div className="relative group">
+                  <span className="text-green-600 dark:text-green-400 cursor-help">🛡️</span>
+                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none w-72 z-10">
+                    <div className="font-semibold text-green-400 mb-1">🛡️ Your Data is Secure:</div>
+                    <div className="text-xs leading-relaxed">
+                      Your files and personal information are protected with industry-standard encryption and security measures. We never share your data with third parties. Uploaded documents are used solely to provide you with personalized AI responses tailored to your specific situation.
+                    </div>
+                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+                  </div>
+                </div>
+              </div>
               <div className="relative">
                 <input
                   id="contextFile"
@@ -535,22 +624,8 @@ ${response}`;
           {/* Compact Example Prompts - Takes up 1/3 on large screens - Full Height */}
           <section className="lg:col-span-1 bg-indigo-50 dark:bg-gray-800 rounded-xl shadow-inner flex flex-col">
             <div className="p-4 flex-shrink-0">
-              <h3 className="font-semibold text-sm text-indigo-700 dark:text-indigo-300 mb-2 flex items-center">
+              <h3 className="font-semibold text-sm text-indigo-700 dark:text-indigo-300 mb-2">
                 🚀 Quick Examples
-                {isSubscribed && (
-                  <div className="relative ml-1 group">
-                    <div className="text-green-600 dark:text-green-400 cursor-help">
-                      🛡️
-                    </div>
-                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none w-64 z-10">
-                      <div className="font-semibold text-green-400 mb-1">🔒 Privacy First</div>
-                      <div className="text-xs leading-relaxed">
-                        Your personal data is encrypted, user-isolated, and never shared with third parties.
-                      </div>
-                      <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
-                    </div>
-                  </div>
-                )}
               </h3>
               <p className="text-xs text-gray-600 dark:text-gray-400 mb-3">
                 {isSubscribed 
