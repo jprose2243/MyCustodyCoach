@@ -428,49 +428,49 @@ ${response}`;
           <h1 className="text-4xl font-bold text-indigo-600 dark:text-indigo-400">MyCustodyCoach</h1>
         </div>
 
-        {/* Navigation and User Info */}
-        {firstName && (
-          <nav className="space-y-4">
-            {/* Navigation Buttons */}
-            <div className="flex justify-center items-center space-x-3">
-              <button
-                onClick={() => router.push('/evidence')}
-                className="px-3 py-1 rounded-lg bg-purple-100 hover:bg-purple-200 text-purple-700 font-semibold text-sm transition"
-                title="Organize your evidence"
-              >
-                📂 Evidence Organizer
-              </button>
-              <button
-                onClick={() => router.push('/parenting-time')}
-                className="px-3 py-1 rounded-lg bg-indigo-100 hover:bg-indigo-200 text-indigo-700 font-semibold text-sm transition"
-                title="Track parenting time and visits"
-              >
-                📅 Parenting Time
-              </button>
-              <button
-                onClick={() => router.push('/communication')}
-                className="px-3 py-1 rounded-lg bg-blue-100 hover:bg-blue-200 text-blue-700 font-semibold text-sm transition"
-                title="Track communications and messages"
-              >
-                💬 Communication Log
-              </button>
-              <button
-                onClick={() => router.push('/support')}
-                className="px-3 py-1 rounded-lg bg-green-100 hover:bg-green-200 text-green-700 font-semibold text-sm transition"
-                title="Get support"
-              >
-                🆘 Support
-              </button>
-              <button
-                onClick={() => router.push('/settings')}
-                className="px-3 py-1 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-sm transition"
-                title="Account settings"
-              >
-                ⚙️ Settings
-              </button>
-            </div>
-            
-            {/* User Info */}
+        {/* Navigation - Always Visible */}
+        <nav className="space-y-4">
+          {/* Navigation Buttons */}
+          <div className="flex justify-center items-center space-x-3">
+            <button
+              onClick={() => router.push('/evidence')}
+              className="px-3 py-1 rounded-lg bg-purple-100 hover:bg-purple-200 text-purple-700 font-semibold text-sm transition"
+              title="Organize your evidence"
+            >
+              📂 Evidence Organizer
+            </button>
+            <button
+              onClick={() => router.push('/parenting-time')}
+              className="px-3 py-1 rounded-lg bg-indigo-100 hover:bg-indigo-200 text-indigo-700 font-semibold text-sm transition"
+              title="Track parenting time and visits"
+            >
+              📅 Parenting Time
+            </button>
+            <button
+              onClick={() => router.push('/communication')}
+              className="px-3 py-1 rounded-lg bg-blue-100 hover:bg-blue-200 text-blue-700 font-semibold text-sm transition"
+              title="Track communications and messages"
+            >
+              💬 Communication Log
+            </button>
+            <button
+              onClick={() => router.push('/support')}
+              className="px-3 py-1 rounded-lg bg-green-100 hover:bg-green-200 text-green-700 font-semibold text-sm transition"
+              title="Get support"
+            >
+              🆘 Support
+            </button>
+            <button
+              onClick={() => router.push('/settings')}
+              className="px-3 py-1 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-sm transition"
+              title="Account settings"
+            >
+              ⚙️ Settings
+            </button>
+          </div>
+          
+          {/* User Info - Only show if authenticated */}
+          {firstName && (
             <div className="flex justify-between items-center text-sm text-gray-700 dark:text-gray-300">
               <span>{firstName} ({courtState})</span>
               <button
@@ -480,8 +480,8 @@ ${response}`;
                 Sign Out
               </button>
             </div>
-          </nav>
-        )}
+          )}
+        </nav>
 
         {/* Usage Tracking Banner */}
         {!isSubscribed && (
