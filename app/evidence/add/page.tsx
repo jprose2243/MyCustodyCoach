@@ -73,7 +73,7 @@ export default function AddEvidencePage() {
     };
 
     initializePage();
-  }, []);
+  }, [router]);
 
   const loadCategories = async () => {
     const { data, error } = await supabase
@@ -90,7 +90,7 @@ export default function AddEvidencePage() {
     setCategories(data || []);
   };
 
-  const handleInputChange = (field: string, value: any) => {
+  const handleInputChange = (field: string, value: string | number | boolean) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     setError(''); // Clear error when user makes changes
   };
@@ -175,9 +175,10 @@ export default function AddEvidencePage() {
         router.push('/evidence');
       }, 1500);
 
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('❌ Failed to create evidence:', err);
-      setError(err.message);
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -194,7 +195,7 @@ export default function AddEvidencePage() {
     return labels[level as keyof typeof labels];
   };
 
-  const selectedCategory = categories.find(cat => cat.id === formData.categoryId);
+
 
   return (
     <main className="min-h-screen bg-blue-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 px-4 py-8">

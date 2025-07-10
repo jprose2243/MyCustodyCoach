@@ -110,7 +110,7 @@ export async function PUT(
     }
 
     // Build update object (only include provided fields)
-    const updateData: any = {};
+    const updateData: Record<string, string | number | boolean | string[] | null> = {};
     
     if (categoryId !== undefined) updateData.category_id = categoryId;
     if (title !== undefined) updateData.title = title.trim();

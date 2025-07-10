@@ -170,7 +170,7 @@ export default function SignUpPage() {
             Is my information secure?
           </p>
           <p className="text-blue-100 text-xs">
-            Yes, MyCustodyCoach takes protecting and securing your personal data very seriously—it's our main priority. We use industry-standard security practices and encryption to safeguard your information and case details, which are never shared with third parties.
+            Yes, MyCustodyCoach takes protecting and securing your personal data very seriously—it&apos;s our main priority. We use industry-standard security practices and encryption to safeguard your information and case details, which are never shared with third parties.
           </p>
         </div>
 
@@ -203,7 +203,7 @@ export default function SignUpPage() {
           onChange={(e) => setChildAge(e.target.value)}
           required
         >
-          <option value="">Child's Age (oldest if multiple)</option>
+          <option value="">Child&apos;s Age (oldest if multiple)</option>
           {Array.from({ length: 20 }, (_, i) => (
             <option key={i} value={i.toString()}>{i} years old</option>
           ))}

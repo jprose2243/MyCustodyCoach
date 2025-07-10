@@ -45,7 +45,7 @@ export default function EvidencePage() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
   const [importanceFilter, setImportanceFilter] = useState<number>(0); // 0 = all
-  const [userId, setUserId] = useState('');
+
   const [firstName, setFirstName] = useState('');
   const [isSubscribed, setIsSubscribed] = useState(false);
 
@@ -58,8 +58,6 @@ export default function EvidencePage() {
         router.push('/login');
         return;
       }
-
-      setUserId(session.user.id);
 
       // Get user profile for personalization and subscription status
       const { data: profile } = await supabase
@@ -82,7 +80,7 @@ export default function EvidencePage() {
     };
 
     initializePage();
-  }, []);
+  }, [router]);
 
   const loadCategories = async () => {
     const { data, error } = await supabase
@@ -244,7 +242,7 @@ export default function EvidencePage() {
               <div>
                 <h3 className="font-bold text-xl mb-2">🔒 Premium Feature Preview</h3>
                 <p className="text-indigo-100 mb-4">
-                  You're viewing the Evidence Organizer interface. Upgrade to Premium to:
+                  You&apos;re viewing the Evidence Organizer interface. Upgrade to Premium to:
                 </p>
                 <ul className="text-indigo-100 text-sm space-y-1">
                   <li>• Add and organize unlimited evidence items</li>
@@ -344,7 +342,7 @@ export default function EvidencePage() {
               <div className="flex space-x-2">
                 <select
                   value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as any)}
+                  onChange={(e) => setSortBy(e.target.value as 'date' | 'importance' | 'title')}
                   className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-700"
                 >
                   <option value="date">Date</option>
@@ -390,7 +388,7 @@ export default function EvidencePage() {
             <h3 className="text-xl font-semibold mb-2">No Evidence Found</h3>
             <p className="text-gray-600 dark:text-gray-400 mb-6">
               {evidenceItems.length === 0 
-                ? "You haven't added any evidence yet. Start building your case by adding your first piece of evidence."
+                ? "You haven&apos;t added any evidence yet. Start building your case by adding your first piece of evidence."
                 : "No evidence matches your current filters. Try adjusting your search or filter criteria."
               }
             </p>

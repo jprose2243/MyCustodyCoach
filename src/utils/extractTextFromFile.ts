@@ -134,7 +134,8 @@ function extractTextFromPlainText(buffer: Buffer): string {
  * Extracts text from DOCX files
  * Note: This is a simplified implementation. In production, consider using a library like mammoth
  */
-async function extractTextFromDocx(buffer: Buffer): Promise<string> {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+async function extractTextFromDocx(_buffer: Buffer): Promise<string> {
   try {
     // For now, return a helpful message
     // TODO: Implement proper DOCX parsing using mammoth or similar library

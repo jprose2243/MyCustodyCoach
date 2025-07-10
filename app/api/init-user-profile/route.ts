@@ -98,8 +98,9 @@ export async function POST(req: Request) {
 
       return NextResponse.json({ success: true, updated: true });
     }
-  } catch (err: any) {
-    console.error('❌ Unexpected error in init-user-profile:', err.message || err);
+  } catch (err: unknown) {
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    console.error('❌ Unexpected error in init-user-profile:', errorMessage);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }

@@ -36,7 +36,7 @@ export default function SupportPage() {
       } else {
         alert('Failed to send message. Please try again.');
       }
-    } catch (error) {
+    } catch {
       alert('Failed to send message. Please try again.');
     } finally {
       setSubmitting(false);
@@ -65,7 +65,7 @@ export default function SupportPage() {
             {submitted ? (
               <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
                 <p className="font-semibold">Message sent successfully!</p>
-                <p className="text-sm">We'll get back to you within 24 hours.</p>
+                <p className="text-sm">We&apos;ll get back to you within 24 hours.</p>
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-4">
@@ -180,7 +180,7 @@ export default function SupportPage() {
                   </h3>
                   <p className="text-sm text-gray-600 dark:text-gray-400">
                     Yes, you can cancel your subscription at any time from your Settings page. 
-                    You'll retain access until the end of your current billing period.
+                    You&apos;ll retain access until the end of your current billing period.
                   </p>
                 </div>
 

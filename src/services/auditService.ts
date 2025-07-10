@@ -38,7 +38,7 @@ export interface AuditEvent {
   user_id: string | null;
   ip_address?: string;
   user_agent?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, string | number | boolean | null>;
   created_at?: string;
 }
 
@@ -71,7 +71,10 @@ export async function logAuditEvent(event: AuditEvent): Promise<void> {
 
     console.log(`📊 Audit logged: ${event.event_type} for user ${event.user_id}`);
   } catch (error) {
-    logError(error as Error, { event }, event.user_id || undefined);
+    logError(error as Error, { 
+      event_type: event.event_type,
+      user_id: event.user_id 
+    }, event.user_id || undefined);
     // Don't throw - audit logging should not break application flow
   }
 }
@@ -142,7 +145,10 @@ export async function getSecurityAuditLogs(
 
     return data || [];
   } catch (error) {
-    logError(error as Error, { startDate, endDate });
+    logError(error as Error, { 
+      startDate: startDate.toISOString(), 
+      endDate: endDate.toISOString() 
+    });
     throw error;
   }
 }

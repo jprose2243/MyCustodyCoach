@@ -3,7 +3,7 @@ import Stripe from 'stripe';
 import { supabase } from '@/src/lib/server-only/supabase-admin';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2025-06-30.basil' as any, // ✅ prevent TypeScript mismatch
+  apiVersion: '2025-06-30.basil' as Stripe.LatestApiVersion, // ✅ prevent TypeScript mismatch
 });
 
 export async function POST(req: Request) {
@@ -41,8 +41,9 @@ export async function POST(req: Request) {
 
     console.log('✅ Subscription activated for user:', userId);
     return NextResponse.json({ success: true });
-  } catch (err: any) {
-    console.error('❌ Payment verification error:', err.message || err);
+  } catch (err: unknown) {
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    console.error('❌ Payment verification error:', errorMessage);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }

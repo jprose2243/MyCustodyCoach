@@ -1,7 +1,6 @@
 import { supabase } from '../lib/server-only/supabase-admin';
 import { createAppError, ErrorCode, logError } from '../utils/errorHandler';
 import { logAuditEvent, AuditEventType } from './auditService';
-import { env } from '../utils/env';
 import { createHash } from 'crypto';
 import * as path from 'path';
 import * as fs from 'fs/promises';
@@ -23,6 +22,17 @@ export interface FileUploadResult {
   path?: string;
   error?: string;
   status?: number;
+}
+
+export interface UserFile {
+  id: string;
+  user_id: string;
+  file_name: string;
+  file_size: number;
+  mime_type: string;
+  storage_path: string;
+  file_hash: string;
+  uploaded_at: string;
 }
 
 // Default configuration
@@ -93,8 +103,8 @@ function generateSecureFileName(originalName: string, userId: string): string {
 async function calculateFileHash(filePath: string): Promise<string> {
   try {
     const fileBuffer = await fs.readFile(filePath);
-    return createHash('sha256').update(fileBuffer as any).digest('hex');
-  } catch (error) {
+    return createHash('sha256').update(new Uint8Array(fileBuffer)).digest('hex');
+  } catch {
     throw createAppError(
       'Failed to calculate file hash',
       ErrorCode.FILE_PROCESSING_ERROR,
@@ -179,7 +189,7 @@ export async function handleFileUpload(
     const fileData = await fs.readFile(file.filepath);
 
     // Upload to Supabase Storage
-    const { data: uploadData, error: uploadError } = await supabase.storage
+    const { error: uploadError } = await supabase.storage
       .from('user-files')
       .upload(secureFileName, fileData, {
         contentType: file.mimetype || 'application/octet-stream',
@@ -191,7 +201,7 @@ export async function handleFileUpload(
         `Failed to upload file: ${uploadError.message}`,
         ErrorCode.SUPABASE_ERROR,
         500,
-        { secureFileName, uploadError }
+        { secureFileName, uploadError: uploadError.message }
       );
     }
 
@@ -223,9 +233,9 @@ export async function handleFileUpload(
       event_type: AuditEventType.FILE_UPLOAD,
       user_id: userId,
       metadata: {
-        file_name: file.originalFilename,
+        file_name: file.originalFilename || null,
         file_size: file.size,
-        mime_type: file.mimetype,
+        mime_type: file.mimetype || null,
         storage_path: secureFileName,
       },
     });
@@ -337,7 +347,7 @@ export async function getUserFiles(
   userId: string,
   limit: number = 50,
   offset: number = 0
-): Promise<any[]> {
+): Promise<UserFile[]> {
   try {
     const { data, error } = await supabase
       .from('user_uploads')

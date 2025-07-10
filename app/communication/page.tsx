@@ -55,13 +55,10 @@ export default function CommunicationLogPage() {
   const [loading, setLoading] = useState(true);
   const [entries, setEntries] = useState<CommunicationEntry[]>([]);
   const [stats, setStats] = useState<CommunicationStats | null>(null);
-  const [userId, setUserId] = useState('');
   const [firstName, setFirstName] = useState('');
   const [error, setError] = useState('');
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [selectedEntry, setSelectedEntry] = useState<CommunicationEntry | null>(null);
-  const [showEntryDetails, setShowEntryDetails] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all');
   const [filterDirection, setFilterDirection] = useState('all');
@@ -94,8 +91,6 @@ export default function CommunicationLogPage() {
         return;
       }
 
-      setUserId(session.user.id);
-
       // Get user profile for personalization and subscription status
       const { data: profile } = await supabase
         .from('user_profiles')
@@ -124,30 +119,7 @@ export default function CommunicationLogPage() {
     initializePage();
   }, [router]);
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
-    });
-  };
 
-  const formatTime = (timeString: string) => {
-    return new Date(`2000-01-01T${timeString}`).toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true
-    });
-  };
-
-  const getCommunicationType = (type: string) => {
-    return COMMUNICATION_TYPES.find(t => t.value === type) || COMMUNICATION_TYPES[0];
-  };
-
-  const getPriorityLevel = (priority: string) => {
-    return PRIORITY_LEVELS.find(p => p.value === priority) || PRIORITY_LEVELS[0];
-  };
 
   const resetForm = () => {
     setNewEntry({
@@ -227,7 +199,7 @@ export default function CommunicationLogPage() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-4xl font-bold text-blue-600 dark:text-blue-400">
-              {firstName ? `${firstName}'s Communication Log` : 'Communication Log'}
+              {firstName ? `${firstName}&apos;s Communication Log` : 'Communication Log'}
             </h1>
             <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
               Track all communications, messages, and interactions for custody documentation
@@ -265,7 +237,7 @@ export default function CommunicationLogPage() {
               <div>
                 <h3 className="font-bold text-xl mb-2">💬 Communication Tracking Premium Feature</h3>
                 <p className="text-blue-100 mb-4">
-                  You're viewing the Communication Log interface. Upgrade to Premium to:
+                  You&apos;re viewing the Communication Log interface. Upgrade to Premium to:
                 </p>
                 <ul className="text-blue-100 text-sm space-y-1">
                   <li>• Log unlimited communications and messages</li>

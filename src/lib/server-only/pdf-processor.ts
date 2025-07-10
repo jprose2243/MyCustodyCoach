@@ -7,6 +7,26 @@ GlobalWorkerOptions.workerSrc = 'src/public/pdfjs/pdf.worker.min.js';
 const MAX_PAGES_TO_EXTRACT = 50;
 const MAX_TEXT_LENGTH = 50000;
 
+// Type definitions for PDF.js text content items
+interface TextItem {
+  str?: string;
+  transform?: number[];
+  width?: number;
+  height?: number;
+  fontName?: string;
+  type?: string;
+}
+
+interface PdfInfo {
+  Title?: string;
+  Author?: string;
+  Subject?: string;
+  Creator?: string;
+  Producer?: string;
+  CreationDate?: string;
+  ModDate?: string;
+}
+
 /**
  * Extracts text from a PDF buffer
  */
@@ -53,9 +73,9 @@ export async function extractPdfText(buffer: Buffer): Promise<string> {
         
         // Combine text items from the page
         const pageText = textContent.items
-          .map((item: any) => {
+          .map((item: TextItem) => {
             // Handle different text item types
-            if ('str' in item) {
+            if (item.str) {
               return item.str;
             }
             return '';
@@ -150,7 +170,7 @@ export function validatePdfBuffer(buffer: Buffer): boolean {
     }
 
     return true;
-  } catch (error) {
+  } catch {
     return false;
   }
 }
@@ -176,7 +196,7 @@ export async function getPdfMetadata(buffer: Buffer): Promise<{
     }).promise;
 
     const metadata = await pdf.getMetadata();
-    const info = metadata.info as any;
+    const info = metadata.info as PdfInfo;
     
     return {
       numPages: pdf.numPages,

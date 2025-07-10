@@ -74,6 +74,18 @@ export interface ParentingTimeEvent {
   endDate?: string;
 }
 
+interface ProviderSettings {
+  enabled: boolean;
+  calendarId?: string;
+  accessToken?: string;
+  refreshToken?: string;
+  lastSync?: Date;
+  syncDirection: 'import' | 'export' | 'bidirectional';
+  calendarUrl?: string; // for Apple
+  username?: string; // for Apple
+  password?: string; // for Apple
+}
+
 class CalendarSyncService {
   private static instance: CalendarSyncService;
   private syncSettings: Map<string, SyncSettings> = new Map();
@@ -259,17 +271,20 @@ class CalendarSyncService {
     }
   }
 
-  private async syncToGoogleCalendar(event: CalendarEvent, settings: any): Promise<void> {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  private async syncToGoogleCalendar(event: CalendarEvent, _settings: ProviderSettings): Promise<void> {
     // Implementation would use Google Calendar API
     console.log('Syncing to Google Calendar:', event);
   }
 
-  private async syncToMicrosoftCalendar(event: CalendarEvent, settings: any): Promise<void> {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  private async syncToMicrosoftCalendar(event: CalendarEvent, _settings: ProviderSettings): Promise<void> {
     // Implementation would use Microsoft Graph API
     console.log('Syncing to Microsoft Calendar:', event);
   }
 
-  private async syncToAppleCalendar(event: CalendarEvent, settings: any): Promise<void> {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  private async syncToAppleCalendar(event: CalendarEvent, _settings: ProviderSettings): Promise<void> {
     // Implementation would use CalDAV protocol
     console.log('Syncing to Apple Calendar:', event);
   }

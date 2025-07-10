@@ -1,9 +1,21 @@
 import { isDevelopment } from './env';
 
+type ErrorContext = Record<string, string | number | boolean | null | undefined>;
+
+interface ErrorDetails {
+  timestamp: string;
+  message: string;
+  stack?: string;
+  code?: string;
+  statusCode?: number;
+  context?: ErrorContext;
+  userId?: string;
+}
+
 export interface AppError extends Error {
   code?: string;
   statusCode?: number;
-  context?: Record<string, any>;
+  context?: ErrorContext;
   userId?: string;
   timestamp?: Date;
 }
@@ -48,7 +60,7 @@ export function createAppError(
   message: string,
   code: ErrorCode,
   statusCode: number = 500,
-  context?: Record<string, any>
+  context?: ErrorContext
 ): AppError {
   const error: AppError = new Error(message);
   error.code = code;
@@ -64,11 +76,11 @@ export function createAppError(
  */
 export function logError(
   error: Error | AppError,
-  context?: Record<string, any>,
+  context?: ErrorContext,
   userId?: string
 ): void {
   const timestamp = new Date().toISOString();
-  const errorDetails = {
+  const errorDetails: ErrorDetails = {
     timestamp,
     message: error.message,
     stack: error.stack,
@@ -123,7 +135,7 @@ function shouldStoreError(error: AppError): boolean {
 /**
  * Stores error details in database for audit trail
  */
-async function storeErrorInDatabase(errorDetails: any): Promise<void> {
+async function storeErrorInDatabase(errorDetails: ErrorDetails): Promise<void> {
   try {
     // TODO: Implement database storage
     // This would typically insert into an error_logs table
@@ -168,9 +180,9 @@ export function sanitizeErrorForClient(error: Error | AppError): {
 /**
  * Wraps async functions with error handling
  */
-export function withErrorHandling<T extends any[], R>(
+export function withErrorHandling<T extends unknown[], R>(
   fn: (...args: T) => Promise<R>,
-  context?: Record<string, any>
+  context?: ErrorContext
 ) {
   return async (...args: T): Promise<R> => {
     try {

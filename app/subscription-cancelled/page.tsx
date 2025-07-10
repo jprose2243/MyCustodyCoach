@@ -6,7 +6,7 @@ import { supabase } from '@/src/lib/supabase-browser';
 
 export default function SubscriptionCancelledPage() {
   const router = useRouter();
-  const [email, setEmail] = useState('');
+
   const [firstName, setFirstName] = useState('');
 
   useEffect(() => {
@@ -14,8 +14,6 @@ export default function SubscriptionCancelledPage() {
       const { data: { session } } = await supabase.auth.getSession();
       
       if (session?.user) {
-        setEmail(session.user.email || '');
-        
         const { data: profile } = await supabase
           .from('user_profiles')
           .select('first_name')
@@ -48,7 +46,7 @@ export default function SubscriptionCancelledPage() {
         
         {firstName && (
           <p className="text-gray-600 dark:text-gray-400 mb-6">
-            We're sorry to see you go, {firstName}.
+            We&apos;re sorry to see you go, {firstName}.
           </p>
         )}
         
@@ -58,7 +56,7 @@ export default function SubscriptionCancelledPage() {
           </h2>
           <ul className="text-sm text-blue-700 dark:text-blue-300 space-y-1 text-left">
             <li>• Your subscription has been cancelled</li>
-            <li>• You'll receive a confirmation email shortly</li>
+                            <li>• You&apos;ll receive a confirmation email shortly</li>
             <li>• Your account remains active until the end of your billing period</li>
             <li>• You can reactivate anytime from your settings</li>
           </ul>
@@ -66,7 +64,7 @@ export default function SubscriptionCancelledPage() {
         
         <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4 mb-6">
           <h2 className="font-semibold text-green-800 dark:text-green-400 mb-2">
-            We'd love your feedback
+            We&apos;d love your feedback
           </h2>
           <p className="text-sm text-green-700 dark:text-green-300 mb-3">
             Help us improve MyCustodyCoach for other parents like you.

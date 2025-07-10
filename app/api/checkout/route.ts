@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2025-06-30.basil' as any, // ✅ Cast to silence TS warning
+  apiVersion: '2025-06-30.basil' as Stripe.LatestApiVersion, // ✅ Cast to silence TS warning
 });
 
 export async function POST(req: Request) {
@@ -50,8 +50,9 @@ export async function POST(req: Request) {
 
     console.log('✅ Stripe session created:', session.id);
     return NextResponse.json({ url: session.url });
-  } catch (err: any) {
-    console.error('❌ Stripe session error:', err.message || err);
+  } catch (err: unknown) {
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    console.error('❌ Stripe session error:', errorMessage);
     return NextResponse.json(
       { error: 'Internal error creating Stripe session' },
       { status: 500 }

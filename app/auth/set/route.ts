@@ -10,7 +10,7 @@ export async function POST(request: Request) {
   }
 
   const cookieStore = await cookies();
-  let response = NextResponse.json({ message: 'Session set successfully' });
+  const response = NextResponse.json({ message: 'Session set successfully' });
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

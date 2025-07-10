@@ -5,7 +5,7 @@ import { SessionContextProvider } from '@supabase/auth-helpers-react';
 
 export default function Providers({ children }: { children: React.ReactNode }) {
   return (
-    <SessionContextProvider supabaseClient={supabase as any}>
+    <SessionContextProvider supabaseClient={supabase as unknown as Parameters<typeof SessionContextProvider>[0]['supabaseClient']}>
       {children}
     </SessionContextProvider>
   );

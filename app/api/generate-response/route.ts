@@ -115,7 +115,31 @@ async function fetchParentingTimeData(userId: string) {
 }
 
 // Helper function to format parenting time data for AI context
-function formatParentingTimeContext(data: any): string {
+interface ParentingTimeEntry {
+  visit_date: string;
+  entry_type: string;
+  type_description?: string;
+  child_name?: string;
+  is_overnight: boolean;
+}
+
+interface ParentingTimeStats {
+  total_entries: number;
+  successful_visits: number;
+  missed_visits: number;
+  makeup_visits: number;
+  overnight_visits: number;
+}
+
+interface ParentingTimeData {
+  stats: ParentingTimeStats | null;
+  recentEntries: ParentingTimeEntry[];
+  allEntries: ParentingTimeEntry[];
+  pastEntries: ParentingTimeEntry[];
+  upcomingEntries: ParentingTimeEntry[];
+}
+
+function formatParentingTimeContext(data: ParentingTimeData): string {
   const { stats, recentEntries, allEntries, pastEntries, upcomingEntries } = data;
   
   if (!stats || stats.total_entries === 0) {
@@ -136,7 +160,7 @@ function formatParentingTimeContext(data: any): string {
   // Upcoming visits preview
   if (upcomingEntries.length > 0) {
     context += `\n\nUpcoming Visits (Next ${Math.min(upcomingEntries.length, 5)}):`;
-    upcomingEntries.slice(0, 5).forEach((entry: any) => {
+    upcomingEntries.slice(0, 5).forEach((entry: ParentingTimeEntry) => {
       const date = new Date(entry.visit_date).toLocaleDateString();
       const type = entry.type_description || entry.entry_type;
       const child = entry.child_name ? ` with ${entry.child_name}` : '';
@@ -150,7 +174,7 @@ function formatParentingTimeContext(data: any): string {
     context += `\n\nRecent Activity (Last 30 Days): ${recentEntries.length} entries`;
     
     // Group recent entries by type
-    const recentByType = recentEntries.reduce((acc: any, entry: any) => {
+    const recentByType = recentEntries.reduce((acc: Record<string, number>, entry: ParentingTimeEntry) => {
       const type = entry.type_description || entry.entry_type;
       acc[type] = (acc[type] || 0) + 1;
       return acc;
@@ -162,7 +186,7 @@ function formatParentingTimeContext(data: any): string {
 
     // Recent specific visits
     context += '\n\nRecent Past Visits:';
-    recentEntries.slice(0, 10).forEach((entry: any) => {
+    recentEntries.slice(0, 10).forEach((entry: ParentingTimeEntry) => {
       const date = new Date(entry.visit_date).toLocaleDateString();
       const type = entry.type_description || entry.entry_type;
       const child = entry.child_name ? ` with ${entry.child_name}` : '';
@@ -177,11 +201,11 @@ function formatParentingTimeContext(data: any): string {
   const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const thisYearStart = new Date(now.getFullYear(), 0, 1);
 
-  const thisWeekEntries = allEntries.filter((entry: any) => 
+  const thisWeekEntries = allEntries.filter((entry: ParentingTimeEntry) => 
     new Date(entry.visit_date) >= thisWeekStart);
-  const thisMonthEntries = allEntries.filter((entry: any) => 
+  const thisMonthEntries = allEntries.filter((entry: ParentingTimeEntry) => 
     new Date(entry.visit_date) >= thisMonthStart);
-  const thisYearEntries = allEntries.filter((entry: any) => 
+  const thisYearEntries = allEntries.filter((entry: ParentingTimeEntry) => 
     new Date(entry.visit_date) >= thisYearStart);
 
   context += `\n\nTime Period Summaries:
