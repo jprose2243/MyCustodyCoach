@@ -1,135 +1,125 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { supabase } from '@/src/lib/supabase-browser';
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 
+// Error type for type-safe error handling
 interface ErrorWithMessage {
   message: string;
 }
 
 function UpgradeModal({ onSubscribe, loading }: { onSubscribe: () => void; loading: boolean }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60">
-      <div className="bg-gray-900 rounded-xl shadow p-8 max-w-md w-full text-center border border-indigo-700">
-        <h1 className="text-2xl font-bold mb-4 text-indigo-400">Upgrade to Unlimited Access</h1>
-        <p className="mb-6 text-gray-200">
-          You've used your 3 free questions. Unlock full access to MyCustodyCoach for just{' '}
-          <strong>$20/month</strong>.
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-md w-full shadow-2xl">
+        <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+          🚀 Upgrade to Premium
+        </h3>
+        <p className="text-gray-600 dark:text-gray-300 mb-6">
+          You've reached your free trial limit. Upgrade now for unlimited questions and advanced features!
         </p>
-        <button
-          onClick={onSubscribe}
-          disabled={loading}
-          className={`w-full py-2 px-6 rounded-lg font-semibold transition text-white ${
-            loading ? 'bg-indigo-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700'
-          }`}
-        >
-          {loading ? 'Starting checkout...' : 'Subscribe Now'}
-        </button>
+        <div className="flex space-x-3">
+          <button
+            onClick={onSubscribe}
+            disabled={loading}
+            className="flex-1 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white font-semibold py-2 px-4 rounded-lg transition"
+          >
+            {loading ? 'Processing...' : 'Upgrade Now'}
+          </button>
+        </div>
       </div>
     </div>
   );
 }
 
 export default function UploadClient() {
-  const router = useRouter();
-
-  const [userId, setUserId] = useState('');
-  const [email, setEmail] = useState('');
-  const [firstName, setFirstName] = useState('');
-  const [courtState, setCourtState] = useState('');
-  const [childAge, setChildAge] = useState('');
-  const [goalPriority, setGoalPriority] = useState('');
-  const [parentRole, setParentRole] = useState('');
   const [prompt, setPrompt] = useState('');
+  const [tone, setTone] = useState('professional');
   const [recipient, setRecipient] = useState('court');
-  const [tone, setTone] = useState('formal');
   const [file, setFile] = useState<File | null>(null);
   const [fileName, setFileName] = useState('');
   const [response, setResponse] = useState('');
-  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [showUpgrade, setShowUpgrade] = useState(false);
-  const [upgradeLoading, setUpgradeLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [courtState, setCourtState] = useState('');
   const [questionsUsed, setQuestionsUsed] = useState(0);
   const [isSubscribed, setIsSubscribed] = useState(false);
+  const [showUpgrade, setShowUpgrade] = useState(false);
+  const [upgradeLoading, setUpgradeLoading] = useState(false);
+  const [goalPriority, setGoalPriority] = useState('');
+  const [expandedCategories, setExpandedCategories] = useState<{ [key: string]: boolean }>({
+    parenting_data: false,
+    quickstart: true,
+    specific: false,
+    emotional: false
+  });
 
-  // Recipient-based tone options
+  const router = useRouter();
+  const supabase = createClientComponentClient();
+
+  // Tone options based on recipient
   const toneOptions = {
     court: [
-      { value: 'formal', label: 'Formal', desc: 'Professional and respectful for court documents' },
-      { value: 'respectful', label: 'Respectful', desc: 'Courteous and deferential to the court' },
-      { value: 'direct', label: 'Direct', desc: 'Clear and to-the-point for legal clarity' },
-      { value: 'neutral', label: 'Neutral', desc: 'Objective and factual presentation' },
-      { value: 'assertive', label: 'Assertive', desc: 'Confident while remaining appropriate' },
+      { value: 'professional', label: '📋 Professional', desc: 'Formal, respectful, factual' },
+      { value: 'factual', label: '📊 Factual', desc: 'Data-driven, evidence-based' },
+      { value: 'diplomatic', label: '🤝 Diplomatic', desc: 'Balanced, non-confrontational' }
     ],
     lawyer: [
-      { value: 'professional', label: 'Professional', desc: 'Business-like communication' },
-      { value: 'collaborative', label: 'Collaborative', desc: 'Working together approach' },
-      { value: 'direct', label: 'Direct', desc: 'Clear and efficient communication' },
-      { value: 'formal', label: 'Formal', desc: 'Traditional legal communication style' },
-      { value: 'urgent', label: 'Urgent', desc: 'Time-sensitive matters' },
+      { value: 'professional', label: '⚖️ Professional', desc: 'Legal-focused, thorough' },
+      { value: 'urgent', label: '⚡ Urgent', desc: 'Time-sensitive, action-oriented' },
+      { value: 'collaborative', label: '🤝 Collaborative', desc: 'Solution-focused' }
     ],
     parent: [
-      { value: 'calm', label: 'Calm', desc: 'De-escalating and peaceful' },
-      { value: 'cooperative', label: 'Cooperative', desc: 'Willing to work together' },
-      { value: 'firm', label: 'Firm', desc: 'Setting clear boundaries' },
-      { value: 'empathetic', label: 'Empathetic', desc: 'Understanding and compassionate' },
-      { value: 'neutral', label: 'Neutral', desc: 'Factual and unemotional' },
-      { value: 'conciliatory', label: 'Conciliatory', desc: 'Seeking to resolve conflict' },
-      { value: 'protective', label: 'Protective', desc: 'Prioritizing child\'s wellbeing' },
+      { value: 'diplomatic', label: '🕊️ Diplomatic', desc: 'Peaceful, cooperative' },
+      { value: 'assertive', label: '💪 Assertive', desc: 'Confident but respectful' },
+      { value: 'empathetic', label: '❤️ Empathetic', desc: 'Understanding, child-focused' }
     ],
     universal: [
-      { value: 'professional', label: 'Professional', desc: 'Business-like and appropriate for any recipient' },
-      { value: 'neutral', label: 'Neutral', desc: 'Objective and factual for general use' },
-      { value: 'clear', label: 'Clear', desc: 'Easy to understand and direct' },
-      { value: 'respectful', label: 'Respectful', desc: 'Courteous and considerate' },
-      { value: 'balanced', label: 'Balanced', desc: 'Measured and thoughtful approach' },
-      { value: 'informative', label: 'Informative', desc: 'Educational and explanatory' },
+      { value: 'professional', label: '📋 Professional', desc: 'Clear, respectful' },
+      { value: 'conversational', label: '💬 Conversational', desc: 'Natural, approachable' },
+      { value: 'informative', label: '📚 Informative', desc: 'Educational, explanatory' }
     ]
   };
 
+  const currentTones = toneOptions[recipient as keyof typeof toneOptions];
+  const remainingQuestions = Math.max(0, 3 - questionsUsed);
+
   useEffect(() => {
     const fetchSessionAndProfile = async () => {
-      const {
-        data: { session },
-        error: sessionError,
-      } = await supabase.auth.getSession();
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (session?.user) {
+          const response = await fetch('/api/init-user-profile', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId: session.user.id,
+              email: session.user.email,
+            }),
+          });
 
-      if (sessionError || !session?.user?.id) {
-        console.error('❌ No Supabase session:', sessionError);
-        setError('You are not logged in.');
-        return;
-      }
-
-      const id = session.user.id;
-      setUserId(id);
-      setEmail(session.user.email || '');
-
-      const { data: profile, error: profileError } = await supabase
-        .from('user_profiles')
-        .select('first_name, court_state, child_age, goal_priority, parent_role, questions_used, subscription_status')
-        .eq('id', id)
-        .single();
-
-      if (profileError) {
-        console.error('❌ Failed to load profile:', profileError.message);
-        return;
-      }
-
-      if (profile) {
-        setFirstName(profile.first_name || '');
-        setCourtState(profile.court_state || '');
-        setChildAge(profile.child_age || '');
-        setGoalPriority(profile.goal_priority || '');
-        setParentRole(profile.parent_role || '');
-        setQuestionsUsed(profile.questions_used || 0);
-        setIsSubscribed(profile.subscription_status || false);
+          if (response.ok) {
+            const profile = await response.json();
+            setFirstName(profile.first_name || '');
+            setCourtState(profile.court_state || '');
+            setQuestionsUsed(profile.questions_used || 0);
+            setIsSubscribed(profile.subscription_status || false);
+            setGoalPriority(profile.goal_priority || '');
+          }
+        } else {
+          router.push('/login');
+        }
+      } catch (error) {
+        console.error('Error fetching session/profile:', error);
+        router.push('/login');
       }
     };
 
     fetchSessionAndProfile();
-  }, []);
+  }, [router, supabase.auth]);
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -154,54 +144,48 @@ export default function UploadClient() {
   const handleDeleteFile = () => {
     setFile(null);
     setFileName('');
-    // Clear the file input
+    // Reset the file input
     const fileInput = document.getElementById('contextFile') as HTMLInputElement;
-    if (fileInput) {
-      fileInput.value = '';
-    }
+    if (fileInput) fileInput.value = '';
   };
 
   const handleSubscribe = async () => {
     setUpgradeLoading(true);
     try {
-      const res = await fetch('/api/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, email }),
-      });
-      if (!res.ok) {
-        setUpgradeLoading(false);
-        alert('Something went wrong. Please try again.');
-        return;
-      }
-      const data = await res.json();
-      if (data?.url) {
-        window.location.href = data.url;
-      } else {
-        setUpgradeLoading(false);
-        alert('No checkout URL returned.');
-      }
-    } catch (err) {
+      router.push('/payment');
+    } catch (error) {
+      console.error('Error navigating to payment:', error);
+    } finally {
       setUpgradeLoading(false);
-      alert('Something went wrong. Please try again.');
     }
   };
 
   const handleSubmit = async () => {
+    if (loading) return;
+    if (!prompt.trim()) {
+      setError('Please enter a question');
+      return;
+    }
+
+    // Check if user has reached their limit
+    if (!isSubscribed && questionsUsed >= 3) {
+      setShowUpgrade(true);
+      return;
+    }
+
+    setLoading(true);
     setError('');
     setResponse('');
-    setLoading(true);
 
     try {
-      if (!userId) throw new Error('❌ You must be logged in to submit a question.');
-      if (!prompt.trim()) throw new Error('❌ Please enter a question.');
-
-      // Check if user has reached free limit and redirect to payment page
-      if (!isSubscribed && questionsUsed >= 3) {
-        console.log('🔄 Redirecting to payment page - free limit reached');
-        router.push('/payment');
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.user) {
+        router.push('/login');
         return;
       }
+
+      const userId = session.user.id;
 
       // Handle file upload for subscribed users
       let fileUrl = '';
@@ -220,10 +204,16 @@ export default function UploadClient() {
             const uploadData = await uploadRes.json();
             fileUrl = uploadData.fileUrl;
           } else {
-            console.warn('File upload failed, proceeding with text-only question');
+            const uploadError = await uploadRes.json();
+            setError(`File upload failed: ${uploadError.message}`);
+            setLoading(false);
+            return;
           }
         } catch (uploadError) {
-          console.warn('File upload error, proceeding with text-only question:', uploadError);
+          console.error('Upload error:', uploadError);
+          setError('File upload failed. Please try again.');
+          setLoading(false);
+          return;
         }
       }
 
@@ -239,53 +229,28 @@ export default function UploadClient() {
         body: formData,
       });
 
-      const data = await res.json();
-      if (data?.error && data.error.toLowerCase().includes('free question limit')) {
-        console.log('🔄 Redirecting to payment page - API limit reached');
-        router.push('/payment');
-        return;
-      }
-      if (!res.ok || !data.result || typeof data.result !== 'string' || data.result.trim().length < 10) {
-        throw new Error(data.error || 'No meaningful response received. Try rephrasing your question.');
-      }
-
-      const finalResult = data.result.trim();
-      setResponse(finalResult);
-
-      // Update local state
-      if (!isSubscribed) {
+      if (res.ok) {
+        const data = await res.json();
+        setResponse(data.response);
         setQuestionsUsed(prev => prev + 1);
-      }
-
-      // ✅ Save log to Supabase sessions
-      const { error: insertError } = await supabase.from('sessions').insert({
-        user_id: userId,
-        prompt: prompt.trim(),
-        tone,
-        file_url: null,
-        result: finalResult,
-      });
-
-      if (insertError) {
-        console.error('⚠️ Failed to log session:', insertError.message);
+        
+        // Clear the form
+        setPrompt('');
+        setFile(null);
+        setFileName('');
+        const fileInput = document.getElementById('contextFile') as HTMLInputElement;
+        if (fileInput) fileInput.value = '';
       } else {
-        console.log('📊 Response logged to Supabase.');
+        const errorData = await res.json();
+        setError(errorData.message || 'Failed to generate response');
       }
-    } catch (err: unknown) {
-      let message = 'Unexpected error occurred.';
-      if (typeof err === 'object' && err !== null && 'message' in err && typeof (err as ErrorWithMessage).message === 'string') {
-        message = (err as ErrorWithMessage).message;
-      } else if (typeof err === 'string') {
-        message = err;
-      }
-      setError(message);
+    } catch (error: unknown) {
+      const errorMessage = (error as ErrorWithMessage)?.message || 'An error occurred';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
   };
-
-  const currentTones = toneOptions[recipient as keyof typeof toneOptions] || toneOptions.court;
-  const remainingQuestions = isSubscribed ? '∞' : Math.max(0, 3 - questionsUsed);
 
   // Organized example prompts by category with collapsible sections
   const exampleCategories = {
@@ -299,58 +264,40 @@ export default function UploadClient() {
       ] : [
         `🔒 Upload your calendar data to get personalized parenting time analysis`,
         `🔒 Get court-ready summaries of your actual visit history with file uploads`,
-        `🔒 Analyze your parenting patterns with data integration (Premium)`,
+        `🔒 Track overnight patterns with real data - upgrade to access`,
       ]
     },
-    'custody_support': {
-      title: '⚖️ Traditional Custody Support',
-      subtitle: 'Court preparation and legal guidance',
+    'quickstart': {
+      title: '⚡ Quick Start Examples',
+      subtitle: 'Ready-to-use prompts',
       prompts: [
-        `⚖️ Help me prepare for a hearing in ${courtState} as a ${parentRole} of a ${childAge}-year-old.`,
-        `🛡️ How can I respond to gatekeeping behavior and still pursue ${goalPriority}?`,
-        `💬 Write a ${tone} reply to an accusatory message about my parenting time.`,
+        `Help me respond professionally to: "You're always 10 minutes late picking up [child name]"`,
+        `Draft a message asking to switch my weekend due to a family emergency.`,
+        `How do I request makeup time for a missed visit due to illness?`,
+        `Help me document when the other parent arrives late for exchanges.`
       ]
     },
-    'family_scenarios': {
-      title: '👶👧 Multiple Children & Family',
-      subtitle: 'Complex family situations and scheduling',
+    'specific': {
+      title: '🎯 Specific Situations',
+      subtitle: 'Context-aware responses',
       prompts: [
-        `👶👧 I have multiple children - how do I address different custody schedules in court?`,
-        `🏠 The other parent wants to relocate with our children. What are my options?`,
-        `🎒 How do I document when the other parent returns the children in poor condition?`,
+        `The other parent wants to take our child on vacation during my scheduled time. How should I respond?`,
+        `I need to address concerns about our child's behavior after visits. Draft a diplomatic message.`,
+        `Help me request a modification to our ${goalPriority === '50/50 custody' ? 'parenting plan for equal time' : 'current custody arrangement'}.`,
+        `Draft a response about missed child support payments while keeping it focused on the children.`
       ]
     },
-    'evidence_docs': {
-      title: '📋 Evidence & Documentation',
-      subtitle: 'Organizing and presenting your case',
+    'emotional': {
+      title: '💙 Emotional & Difficult Topics',
+      subtitle: 'Sensitive communication',
       prompts: [
-        `📋 I've organized evidence in my Evidence Organizer - how do I present it to my lawyer?`,
-        `📱 The other parent sends harassing texts. How should I document this for court?`,
-        `⚠️ How do I write an incident report for my evidence collection?`,
-      ]
-    },
-    'court_communications': {
-      title: '📑 Court Communications',
-      subtitle: 'Professional legal correspondence',
-      prompts: [
-        `📑 Draft a motion requesting makeup time for missed visits in ${courtState}.`,
-        `🤝 Write a professional email to the guardian ad litem about my concerns.`,
-        `📧 Help me respond to my lawyer's request for documentation updates.`,
-      ]
-    },
-    'crisis_emergency': {
-      title: '🚨 Crisis & Emergency',
-      subtitle: 'Urgent situations and violations',
-      prompts: [
-        `🚨 The other parent didn't return the children as scheduled. What steps do I take?`,
-        `🏥 My child was injured during the other parent's time. How do I document this?`,
-        `📞 How do I report a custody violation to the court in ${courtState}?`,
+        `Help me respond when the other parent makes personal attacks in messages.`,
+        `I need to address my child's emotional distress after visits. What should I say?`,
+        `Draft a message about introducing a new partner to our child.`,
+        `How do I communicate about therapy or counseling for our child?`
       ]
     }
   };
-
-  // State for tracking which categories are expanded
-  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
 
   const toggleCategory = (categoryKey: string) => {
     setExpandedCategories(prev => ({
@@ -363,29 +310,22 @@ export default function UploadClient() {
     if (!response) return;
     
     const content = `MyCustodyCoach Response
-===============================
-
 Date: ${new Date().toLocaleDateString()}
 Recipient: ${recipient.charAt(0).toUpperCase() + recipient.slice(1)}
 Tone: ${tone.charAt(0).toUpperCase() + tone.slice(1)}
 Question: ${prompt}
 
 Response:
----------
-${response}
-
-Generated by MyCustodyCoach
-https://mycustodycoach.com
-`;
+${response}`;
 
     const blob = new Blob([content], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `MCC-Response-${new Date().toISOString().split('T')[0]}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `MyCustodyCoach_Response_${new Date().toISOString().split('T')[0]}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
     URL.revokeObjectURL(url);
   };
 
