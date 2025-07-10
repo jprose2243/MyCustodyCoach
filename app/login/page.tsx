@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { supabase } from '@/src/lib/supabase-browser';
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -10,65 +10,72 @@ export default function LoginPage() {
   const [errorMsg, setErrorMsg] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const supabase = createClientComponentClient();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
     setLoading(true);
 
-    const { data: loginData, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    try {
+      const { data: loginData, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-    if (error || !loginData.session) {
-      console.error('❌ Login error:', error?.message);
-      setErrorMsg(error?.message || 'Login failed');
-      setLoading(false);
-      return;
-    }
+      if (error || !loginData.session) {
+        console.error('❌ Login error:', error?.message);
+        setErrorMsg(error?.message || 'Login failed');
+        setLoading(false);
+        return;
+      }
 
-    console.log('✅ Login successful:', loginData.session.user.id);
+      console.log('✅ Login successful:', loginData.session.user.id);
 
-    // ✅ Persist session via /auth/set
-    const sessionRes = await fetch('/auth/set', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ access_token: loginData.session.access_token }),
-    });
+      // ✅ Persist session via /auth/set
+      const sessionRes = await fetch('/auth/set', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ access_token: loginData.session.access_token }),
+      });
 
-    if (!sessionRes.ok) {
-      const debug = await sessionRes.text();
-      console.error('❌ Failed to persist session:', debug);
-      setErrorMsg('Session persistence failed.');
-      setLoading(false);
-      return;
-    }
+      if (!sessionRes.ok) {
+        const debug = await sessionRes.text();
+        console.error('❌ Failed to persist session:', debug);
+        setErrorMsg('Session persistence failed.');
+        setLoading(false);
+        return;
+      }
 
-    // ✅ Check subscription status
-    const { data: profile, error: profileError } = await supabase
-      .from('user_profiles')
-      .select('subscription_status')
-      .eq('id', loginData.user.id)
-      .single();
+      // ✅ Initialize user profile and check subscription status
+      const profileRes = await fetch('/api/init-user-profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: loginData.user.id,
+          email: loginData.user.email,
+        }),
+      });
 
-    if (profileError || !profile) {
-      console.error('❌ Failed to fetch user profile:', profileError?.message);
-      setErrorMsg('Failed to load user data.');
-      setLoading(false);
-      return;
-    }
+      if (!profileRes.ok) {
+        console.error('❌ Failed to initialize user profile');
+        setErrorMsg('Failed to load user data.');
+        setLoading(false);
+        return;
+      }
 
-    console.log('🔐 Subscription status:', profile.subscription_status);
+      const profile = await profileRes.json();
+      console.log('🔐 Subscription status:', profile.subscription_status);
 
-    // ✅ Redirect based on subscription
-    if (profile.subscription_status === true) {
+      // ✅ Redirect to upload page (user can see trial vs premium features there)
       router.push('/upload');
-    } else {
-      router.push('/payment');
-    }
 
-    setLoading(false);
+      setLoading(false);
+    } catch (error) {
+      console.error('❌ Login error:', error);
+      setErrorMsg('An unexpected error occurred. Please try again.');
+      setLoading(false);
+    }
   };
 
   return (
@@ -126,6 +133,19 @@ export default function LoginPage() {
         >
           {loading ? 'Logging in...' : 'Log In'}
         </button>
+
+        <div className="text-center">
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            Don't have an account?{' '}
+            <button
+              type="button"
+              onClick={() => router.push('/signup')}
+              className="text-indigo-600 hover:text-indigo-700 font-semibold"
+            >
+              Sign up here
+            </button>
+          </p>
+        </div>
       </form>
     </main>
   );

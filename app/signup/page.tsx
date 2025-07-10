@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { supabase } from '@/src/lib/supabase-browser';
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 
 const STATES = [
   'Alabama', 'Alaska', 'Arizona', 'Arkansas', 'California', 'Colorado',
@@ -70,78 +70,88 @@ export default function SignUpPage() {
       return;
     }
 
-    const { data, error: signUpError } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { first_name: firstName.trim() },
-      },
-    });
+    try {
+      const supabase = createClientComponentClient();
 
-    if (signUpError || !data.user) {
-      console.error('❌ Signup error:', signUpError?.message);
-      setError(signUpError?.message || 'Signup failed');
-      return;
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: { first_name: firstName.trim() },
+        },
+      });
+
+      if (signUpError || !data.user) {
+        console.error('❌ Signup error:', signUpError?.message);
+        setError(signUpError?.message || 'Signup failed');
+        return;
+      }
+
+      console.log('✅ Signup success:', data);
+
+      // Wait for session to be available
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      const session = sessionData?.session;
+
+      if (sessionError || !session?.access_token) {
+        console.error('❌ Session error:', sessionError?.message);
+        setError('Failed to retrieve valid session');
+        return;
+      }
+
+      console.log('✅ Session retrieved');
+
+      // Persist session
+      const sessionRes = await fetch('/auth/set', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ access_token: session.access_token }),
+      });
+
+      if (!sessionRes.ok) {
+        const err = await sessionRes.text();
+        console.error('❌ Failed to persist session:', err);
+        setError('Failed to persist session');
+        return;
+      }
+
+      console.log('✅ Session persisted');
+
+      // Initialize user profile
+      const profilePayload = {
+        userId: data.user.id,
+        email: email.trim(),
+        first_name: firstName.trim(),
+        court_state: courtState.trim(),
+        child_age: Number(childAge),
+        children_count: childrenCount.trim(),
+        parent_role: parentRole.trim(),
+        goal_priority: goalPriority.join(', '),
+      };
+
+      console.log('📤 Sending profile payload:', profilePayload);
+
+      const profileRes = await fetch('/api/init-user-profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(profilePayload),
+      });
+
+      if (!profileRes.ok) {
+        const debugText = await profileRes.text();
+        console.error('❌ Profile init failed:', debugText);
+        setError('Failed to initialize user profile');
+        return;
+      }
+
+      console.log('✅ Redirecting to /upload for free trial');
+      router.push('/upload');
+    } catch (error) {
+      console.error('❌ Unexpected signup error:', error);
+      setError('An unexpected error occurred. Please try again.');
     }
-
-    console.log('✅ Signup success:', data);
-
-    await new Promise((resolve) => setTimeout(resolve, 500));
-
-    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-    const session = sessionData?.session;
-
-    if (sessionError || !session?.access_token) {
-      console.error('❌ Session error:', sessionError?.message);
-      setError('Failed to retrieve valid session');
-      return;
-    }
-
-    console.log('✅ Session retrieved');
-
-    const sessionRes = await fetch('/auth/set', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ access_token: session.access_token }),
-    });
-
-    if (!sessionRes.ok) {
-      const err = await sessionRes.text();
-      console.error('❌ Failed to persist session:', err);
-      setError('Failed to persist session');
-      return;
-    }
-
-    console.log('✅ Session persisted');
-
-    const profilePayload = {
-      userId: data.user.id,
-      email: email.trim(),
-      first_name: firstName.trim(),
-      court_state: courtState.trim(),
-      child_age: Number(childAge),
-      children_count: childrenCount.trim(),
-      parent_role: parentRole.trim(),
-      goal_priority: goalPriority.join(', '),
-    };
-
-    console.log('📤 Sending profile payload:', profilePayload);
-
-    const profileRes = await fetch('/api/init-user-profile', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(profilePayload),
-    });
-
-    if (!profileRes.ok) {
-      const debugText = await profileRes.text();
-      console.error('❌ Profile init failed:', debugText);
-      setError('Failed to initialize user profile');
-      return;
-    }
-
-    console.log('✅ Redirecting to /upload for free trial');
-    router.push('/upload');
   };
 
   return (
