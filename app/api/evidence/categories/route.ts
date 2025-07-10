@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase-admin';
+import { supabase } from '@/src/lib/server-only/supabase-admin';
 
 // GET /api/evidence/categories - Get all evidence categories
 export async function GET(request: NextRequest) {
