@@ -559,19 +559,6 @@ https://mycustodycoach.com
                       : 'text-gray-400 cursor-not-allowed opacity-60'
                   }`}
                 />
-                {!isSubscribed && (
-                  <div className="absolute inset-0 bg-gray-100 bg-opacity-50 rounded-xl flex items-center justify-center">
-                    <div className="text-center">
-                      <span className="text-gray-500 text-sm font-medium block">🔒 Premium Feature</span>
-                      <button
-                        onClick={() => router.push('/payment')}
-                        className="mt-1 text-xs text-indigo-600 hover:text-indigo-800 underline"
-                      >
-                        Upgrade to upload files
-                      </button>
-                    </div>
-                  </div>
-                )}
               </div>
               {fileName && (
                 <div className="mt-2 flex items-center justify-between bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
