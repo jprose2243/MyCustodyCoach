@@ -559,7 +559,7 @@ export default function ParentingTimePage() {
               </button>
             )}
             <button
-              onClick={() => router.push('/upload')}
+              onClick={() => router.push('/')}
               className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold transition"
             >
               ← Back to Coach

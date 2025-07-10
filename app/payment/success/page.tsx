@@ -44,7 +44,7 @@ function SuccessPageContent() {
           setStatus('success');
           // Auto-redirect to main interface after 2 seconds
           setTimeout(() => {
-            router.push('/upload');
+            router.push('/');
           }, 2000);
         } else {
           setStatus('error');
@@ -88,7 +88,7 @@ function SuccessPageContent() {
               Redirecting you to the main interface in a moment...
             </p>
             <button
-              onClick={() => router.push('/upload')}
+              onClick={() => router.push('/')}
               className="px-6 py-2 bg-white text-green-900 font-semibold rounded-lg hover:bg-green-200 transition"
             >
               Continue to MyCustodyCoach
@@ -111,7 +111,7 @@ function SuccessPageContent() {
                 Try Again
               </button>
               <button
-                onClick={() => router.push('/upload')}
+                onClick={() => router.push('/')}
                 className="w-full px-6 py-2 bg-gray-600 hover:bg-gray-700 text-white font-semibold rounded-lg transition"
               >
                 Continue to App

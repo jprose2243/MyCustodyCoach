@@ -50,7 +50,7 @@ export default function SupportPage() {
         <div className="flex items-center justify-between mb-8">
           <h1 className="text-3xl font-bold text-indigo-600 dark:text-indigo-400">Support Center</h1>
           <button
-            onClick={() => router.push('/upload')}
+            onClick={() => router.push('/')}
             className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold transition"
           >
             ← Back to Coach

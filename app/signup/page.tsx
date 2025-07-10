@@ -145,7 +145,7 @@ export default function SignUpPage() {
       }
 
       console.log('✅ Redirecting to /upload for free trial');
-      router.push('/upload');
+      router.push('/');
     } catch (error) {
       console.error('❌ Unexpected signup error:', error);
       setError('An unexpected error occurred. Please try again.');

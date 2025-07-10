@@ -79,7 +79,7 @@ export default function SubscriptionCancelledPage() {
         
         <div className="space-y-3">
           <button
-            onClick={() => router.push('/upload')}
+            onClick={() => router.push('/')}
             className="w-full px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold transition"
           >
             Continue Using MyCustodyCoach

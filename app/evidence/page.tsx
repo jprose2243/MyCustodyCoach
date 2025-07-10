@@ -212,7 +212,7 @@ export default function EvidencePage() {
           
           <div className="flex items-center space-x-3">
             <button
-              onClick={() => router.push('/upload')}
+              onClick={() => router.push('/')}
               className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-semibold transition"
             >
               ← Back to Coach

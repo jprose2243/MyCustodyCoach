@@ -67,7 +67,7 @@ export default function LoginPage() {
       console.log('🔐 Subscription status:', profile.subscription_status);
 
       // ✅ Redirect to upload page (user can see trial vs premium features there)
-      router.push('/upload');
+      router.push('/');
 
       setLoading(false);
     } catch (error) {
