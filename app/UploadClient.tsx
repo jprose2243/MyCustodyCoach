@@ -101,18 +101,53 @@ export default function UploadClient() {
           setUserId(session.user.id);
           
           // Fetch user profile
-          const { data: profile } = await supabase
+          const { data: profile, error: profileError } = await supabase
             .from('user_profiles')
             .select('first_name, court_state, goal_priority, questions_used, subscription_status')
             .eq('id', session.user.id)
             .single();
           
           if (profile) {
-            setFirstName(profile.first_name || '');
+            setFirstName(profile.first_name || 'User');
             setCourtState(profile.court_state || '');
             setGoalPriority(profile.goal_priority || '');
             setQuestionsUsed(profile.questions_used || 0);
             setIsSubscribed(profile.subscription_status || false);
+          } else if (profileError?.code === 'PGRST116') {
+            // Profile doesn't exist, create basic profile to enable navigation
+            console.log('🆕 Creating basic profile for user...');
+            
+            try {
+              const { error: createError } = await supabase
+                .from('user_profiles')
+                .insert({
+                  id: session.user.id,
+                  email: session.user.email || '',
+                  first_name: 'User',
+                  court_state: '',
+                  child_age: 0,
+                  children_count: '1',
+                  parent_role: '',
+                  goal_priority: '',
+                  questions_used: 0,
+                  subscription_status: false,
+                });
+              
+              if (!createError) {
+                setFirstName('User');
+                setQuestionsUsed(0);
+                setIsSubscribed(false);
+                console.log('✅ Basic profile created successfully');
+              } else {
+                console.error('❌ Failed to create basic profile:', createError);
+                // Still set firstName so navigation shows
+                setFirstName('User');
+              }
+            } catch (createErr) {
+              console.error('❌ Error creating basic profile:', createErr);
+              // Still set firstName so navigation shows
+              setFirstName('User');
+            }
           }
         }
       } catch (error) {
