@@ -17,13 +17,13 @@ function UpgradeModal({ onSubscribe, loading }: { onSubscribe: () => void; loadi
           🚀 Upgrade to Premium
         </h3>
         <p className="text-gray-600 dark:text-gray-300 mb-6">
-          You've reached your free trial limit. Upgrade now for unlimited questions and advanced features!
+          Unlock unlimited questions, file uploads, and premium features to get the most out of MyCustodyCoach.
         </p>
-        <div className="flex space-x-3">
+        <div className="flex gap-3">
           <button
             onClick={onSubscribe}
             disabled={loading}
-            className="flex-1 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white font-semibold py-2 px-4 rounded-lg transition"
+            className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-lg transition disabled:opacity-50"
           >
             {loading ? 'Processing...' : 'Upgrade Now'}
           </button>
@@ -35,55 +35,62 @@ function UpgradeModal({ onSubscribe, loading }: { onSubscribe: () => void; loadi
 
 export default function UploadClient() {
   const [prompt, setPrompt] = useState('');
-  const [tone, setTone] = useState('professional');
-  const [recipient, setRecipient] = useState('court');
-  const [file, setFile] = useState<File | null>(null);
-  const [fileName, setFileName] = useState('');
   const [response, setResponse] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [recipient, setRecipient] = useState('court');
+  const [tone, setTone] = useState('professional');
+  const [file, setFile] = useState<File | null>(null);
+  const [fileName, setFileName] = useState('');
+  
+  // User state
+  const [userId, setUserId] = useState<string | null>(null);
   const [firstName, setFirstName] = useState('');
   const [courtState, setCourtState] = useState('');
+  const [goalPriority, setGoalPriority] = useState('');
   const [questionsUsed, setQuestionsUsed] = useState(0);
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [upgradeLoading, setUpgradeLoading] = useState(false);
-  const [goalPriority, setGoalPriority] = useState('');
-  const [expandedCategories, setExpandedCategories] = useState<{ [key: string]: boolean }>({
-    parenting_data: false,
-    quickstart: true,
-    specific: false,
-    emotional: false
+  
+  // UI state
+  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({
+    'quickstart': true, // Start with Quick Start expanded
+    'parenting_data': false,
+    'specific': false,
+    'emotional': false
   });
 
   const router = useRouter();
+
+  // Computed values
+  const remainingQuestions = Math.max(0, 3 - questionsUsed);
 
   // Tone options based on recipient
   const toneOptions = {
     court: [
       { value: 'professional', label: '📋 Professional', desc: 'Formal, respectful, factual' },
       { value: 'factual', label: '📊 Factual', desc: 'Data-driven, evidence-based' },
-      { value: 'diplomatic', label: '🤝 Diplomatic', desc: 'Balanced, non-confrontational' }
+      { value: 'diplomatic', label: '🤝 Diplomatic', desc: 'Balanced, non-confrontational' },
     ],
     lawyer: [
-      { value: 'professional', label: '⚖️ Professional', desc: 'Legal-focused, thorough' },
-      { value: 'urgent', label: '⚡ Urgent', desc: 'Time-sensitive, action-oriented' },
-      { value: 'collaborative', label: '🤝 Collaborative', desc: 'Solution-focused' }
+      { value: 'professional', label: '📋 Professional', desc: 'Formal, respectful, factual' },
+      { value: 'factual', label: '📊 Factual', desc: 'Data-driven, evidence-based' },
+      { value: 'urgent', label: '🚨 Urgent', desc: 'Time-sensitive, action-focused' },
     ],
     parent: [
-      { value: 'diplomatic', label: '🕊️ Diplomatic', desc: 'Peaceful, cooperative' },
-      { value: 'assertive', label: '💪 Assertive', desc: 'Confident but respectful' },
-      { value: 'empathetic', label: '❤️ Empathetic', desc: 'Understanding, child-focused' }
+      { value: 'diplomatic', label: '🤝 Diplomatic', desc: 'Balanced, non-confrontational' },
+      { value: 'firm', label: '💪 Firm', desc: 'Clear boundaries, assertive' },
+      { value: 'collaborative', label: '🤝 Collaborative', desc: 'Solution-focused, cooperative' },
     ],
     universal: [
-      { value: 'professional', label: '📋 Professional', desc: 'Clear, respectful' },
-      { value: 'conversational', label: '💬 Conversational', desc: 'Natural, approachable' },
-      { value: 'informative', label: '📚 Informative', desc: 'Educational, explanatory' }
+      { value: 'professional', label: '📋 Professional', desc: 'Formal, respectful, factual' },
+      { value: 'diplomatic', label: '🤝 Diplomatic', desc: 'Balanced, non-confrontational' },
+      { value: 'factual', label: '📊 Factual', desc: 'Data-driven, evidence-based' },
     ]
   };
 
   const currentTones = toneOptions[recipient as keyof typeof toneOptions];
-  const remainingQuestions = Math.max(0, 3 - questionsUsed);
 
   useEffect(() => {
     const fetchSessionAndProfile = async () => {
@@ -91,34 +98,30 @@ export default function UploadClient() {
         const { data: { session } } = await supabase.auth.getSession();
         
         if (session?.user) {
-          const response = await fetch('/api/init-user-profile', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              userId: session.user.id,
-              email: session.user.email,
-            }),
-          });
-
-          if (response.ok) {
-            const profile = await response.json();
+          setUserId(session.user.id);
+          
+          // Fetch user profile
+          const { data: profile } = await supabase
+            .from('user_profiles')
+            .select('first_name, court_state, goal_priority, questions_used, subscription_status')
+            .eq('id', session.user.id)
+            .single();
+          
+          if (profile) {
             setFirstName(profile.first_name || '');
             setCourtState(profile.court_state || '');
+            setGoalPriority(profile.goal_priority || '');
             setQuestionsUsed(profile.questions_used || 0);
             setIsSubscribed(profile.subscription_status || false);
-            setGoalPriority(profile.goal_priority || '');
           }
-        } else {
-          router.push('/login');
         }
       } catch (error) {
         console.error('Error fetching session/profile:', error);
-        router.push('/login');
       }
     };
 
     fetchSessionAndProfile();
-  }, [router, supabase.auth]);
+  }, []);
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -126,47 +129,35 @@ export default function UploadClient() {
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Only allow file upload for subscribed users
-    if (!isSubscribed) {
-      setError('File upload is a premium feature. Please upgrade to upload files for AI analysis.');
-      return;
-    }
-
     const selectedFile = e.target.files?.[0];
     if (selectedFile) {
       setFile(selectedFile);
       setFileName(selectedFile.name);
-      setError(''); // Clear any previous errors
     }
   };
 
   const handleDeleteFile = () => {
     setFile(null);
     setFileName('');
-    // Reset the file input
+    // Clear the file input
     const fileInput = document.getElementById('contextFile') as HTMLInputElement;
-    if (fileInput) fileInput.value = '';
+    if (fileInput) {
+      fileInput.value = '';
+    }
   };
 
   const handleSubscribe = async () => {
     setUpgradeLoading(true);
-    try {
-      router.push('/payment');
-    } catch (error) {
-      console.error('Error navigating to payment:', error);
-    } finally {
-      setUpgradeLoading(false);
-    }
+    router.push('/payment');
   };
 
   const handleSubmit = async () => {
-    if (loading) return;
     if (!prompt.trim()) {
-      setError('Please enter a question');
+      setError('Please enter a question.');
       return;
     }
 
-    // Check if user has reached their limit
+    // Check trial limits for non-subscribers
     if (!isSubscribed && questionsUsed >= 3) {
       setShowUpgrade(true);
       return;
@@ -177,75 +168,71 @@ export default function UploadClient() {
     setResponse('');
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session?.user) {
-        router.push('/login');
-        return;
-      }
+      let fileKey = '';
+      let extractedText = '';
 
-      const userId = session.user.id;
-
-      // Handle file upload for subscribed users
-      let fileUrl = '';
+      // Handle file upload if file is present and user is subscribed
       if (file && isSubscribed) {
-        try {
-          const uploadFormData = new FormData();
-          uploadFormData.append('file', file);
-          uploadFormData.append('userId', userId);
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('userId', userId || '');
+        formData.append('fileName', fileName);
 
-          const uploadRes = await fetch('/api/upload-to-supabase', {
-            method: 'POST',
-            body: uploadFormData,
-          });
+        const uploadResponse = await fetch('/api/upload-to-supabase', {
+          method: 'POST',
+          body: formData,
+        });
 
-          if (uploadRes.ok) {
-            const uploadData = await uploadRes.json();
-            fileUrl = uploadData.fileUrl;
-          } else {
-            const uploadError = await uploadRes.json();
-            setError(`File upload failed: ${uploadError.message}`);
-            setLoading(false);
-            return;
-          }
-        } catch (uploadError) {
-          console.error('Upload error:', uploadError);
-          setError('File upload failed. Please try again.');
-          setLoading(false);
-          return;
+        if (uploadResponse.ok) {
+          const uploadResult = await uploadResponse.json();
+          fileKey = uploadResult.fileKey;
+          extractedText = uploadResult.extractedText || '';
+        } else {
+          const uploadError = await uploadResponse.json();
+          throw new Error(uploadError.error || 'File upload failed');
         }
       }
 
-      const formData = new FormData();
-      formData.append('question', prompt.trim());
-      formData.append('tone', tone);
-      formData.append('recipient', recipient);
-      formData.append('fileUrl', fileUrl);
-      formData.append('userId', userId);
-
-      const res = await fetch('/api/generate-response', {
+      // Generate response
+      const generateResponse = await fetch('/api/generate-response', {
         method: 'POST',
-        body: formData,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          prompt,
+          recipient,
+          tone,
+          fileKey,
+          extractedText,
+          userId,
+          firstName,
+          courtState,
+          goalPriority,
+        }),
       });
 
-      if (res.ok) {
-        const data = await res.json();
-        setResponse(data.response);
-        setQuestionsUsed(prev => prev + 1);
-        
-        // Clear the form
-        setPrompt('');
-        setFile(null);
-        setFileName('');
-        const fileInput = document.getElementById('contextFile') as HTMLInputElement;
-        if (fileInput) fileInput.value = '';
-      } else {
-        const errorData = await res.json();
-        setError(errorData.message || 'Failed to generate response');
+      if (!generateResponse.ok) {
+        const errorData = await generateResponse.json();
+        throw new Error(errorData.error || 'Failed to generate response');
       }
-    } catch (error: unknown) {
-      const errorMessage = (error as ErrorWithMessage)?.message || 'An error occurred';
-      setError(errorMessage);
+
+      const result = await generateResponse.json();
+      setResponse(result.response);
+
+      // Update questions used count for non-subscribers
+      if (!isSubscribed) {
+        setQuestionsUsed(prev => prev + 1);
+      }
+
+      // Clear the prompt and file after successful submission
+      setPrompt('');
+      handleDeleteFile();
+
+    } catch (err) {
+      const error = err as ErrorWithMessage;
+      console.error('Submit error:', error);
+      setError(error.message || 'An unexpected error occurred. Please try again.');
     } finally {
       setLoading(false);
     }
