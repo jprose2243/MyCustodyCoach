@@ -137,9 +137,18 @@ export default function UploadClient() {
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // File upload is temporarily disabled
-    setError('File upload is temporarily disabled. Please ask your question without files.');
-    return;
+    // Only allow file upload for subscribed users
+    if (!isSubscribed) {
+      setError('File upload is a premium feature. Please upgrade to upload files for AI analysis.');
+      return;
+    }
+
+    const selectedFile = e.target.files?.[0];
+    if (selectedFile) {
+      setFile(selectedFile);
+      setFileName(selectedFile.name);
+      setError(''); // Clear any previous errors
+    }
   };
 
   const handleDeleteFile = () => {
@@ -194,12 +203,35 @@ export default function UploadClient() {
         return;
       }
 
-      // For now, submit without file upload until bucket is configured
+      // Handle file upload for subscribed users
+      let fileUrl = '';
+      if (file && isSubscribed) {
+        try {
+          const uploadFormData = new FormData();
+          uploadFormData.append('file', file);
+          uploadFormData.append('userId', userId);
+
+          const uploadRes = await fetch('/api/upload-to-supabase', {
+            method: 'POST',
+            body: uploadFormData,
+          });
+
+          if (uploadRes.ok) {
+            const uploadData = await uploadRes.json();
+            fileUrl = uploadData.fileUrl;
+          } else {
+            console.warn('File upload failed, proceeding with text-only question');
+          }
+        } catch (uploadError) {
+          console.warn('File upload error, proceeding with text-only question:', uploadError);
+        }
+      }
+
       const formData = new FormData();
       formData.append('question', prompt.trim());
       formData.append('tone', tone);
       formData.append('recipient', recipient);
-      formData.append('fileUrl', ''); // Empty until bucket is configured
+      formData.append('fileUrl', fileUrl);
       formData.append('userId', userId);
 
       const res = await fetch('/api/generate-response', {
@@ -259,11 +291,15 @@ export default function UploadClient() {
   const exampleCategories = {
     'parenting_data': {
       title: '📊 Parenting Time & Data Integration',
-      subtitle: isSubscribed ? '✨ Using Your Personal Data' : '💡 Upgrade for Personal Data',
-      prompts: [
+      subtitle: isSubscribed ? '✨ Using Your Personal Data' : '🔒 Premium Feature - Upgrade Required',
+      prompts: isSubscribed ? [
         `📊 How much parenting time did I have this month? Summarize my visit statistics.`,
         `📅 Create a court-ready summary of my successful visits vs missed visits this year.`,
         `🌙 What's my overnight visit pattern? How does it support my ${goalPriority} goal?`,
+      ] : [
+        `🔒 Upload your calendar data to get personalized parenting time analysis`,
+        `🔒 Get court-ready summaries of your actual visit history with file uploads`,
+        `🔒 Analyze your parenting patterns with data integration (Premium)`,
       ]
     },
     'custody_support': {
@@ -508,7 +544,7 @@ https://mycustodycoach.com
             {/* File Upload */}
             <div>
               <label htmlFor="contextFile" className="block text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300 mb-1">
-                Upload File (PDF, DOCX, TXT, or Image) - Coming Soon
+                Upload File (PDF, DOCX, TXT, or Image)
               </label>
               <div className="relative">
                 <input
@@ -516,12 +552,26 @@ https://mycustodycoach.com
                   type="file"
                   accept=".pdf,.docx,.txt,image/*"
                   onChange={handleFileChange}
-                  disabled={true}
-                  className="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-gray-200 file:text-gray-500 cursor-not-allowed"
+                  disabled={!isSubscribed}
+                  className={`block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-gray-200 file:text-gray-500 ${
+                    isSubscribed 
+                      ? 'text-gray-700 dark:text-gray-300 cursor-pointer hover:file:bg-gray-300' 
+                      : 'text-gray-400 cursor-not-allowed opacity-60'
+                  }`}
                 />
-                <div className="absolute inset-0 bg-gray-100 bg-opacity-50 rounded-xl flex items-center justify-center">
-                  <span className="text-gray-500 text-sm font-medium">File upload temporarily disabled</span>
-                </div>
+                {!isSubscribed && (
+                  <div className="absolute inset-0 bg-gray-100 bg-opacity-50 rounded-xl flex items-center justify-center">
+                    <div className="text-center">
+                      <span className="text-gray-500 text-sm font-medium block">🔒 Premium Feature</span>
+                      <button
+                        onClick={() => router.push('/payment')}
+                        className="mt-1 text-xs text-indigo-600 hover:text-indigo-800 underline"
+                      >
+                        Upgrade to upload files
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
               {fileName && (
                 <div className="mt-2 flex items-center justify-between bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
@@ -538,9 +588,11 @@ https://mycustodycoach.com
                   </button>
                 </div>
               )}
-              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                <strong>Note:</strong> File upload is temporarily disabled while we configure storage. The AI assistant works great with text-only questions! File support will be added soon.
-              </p>
+              {!isSubscribed && (
+                <div className="mt-2 text-xs text-red-500 dark:text-red-400">
+                  File upload is a premium feature. Please upgrade to upload files for AI analysis.
+                </div>
+              )}
             </div>
 
             <button
