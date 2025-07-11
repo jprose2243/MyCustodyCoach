@@ -166,11 +166,17 @@ export default function SignUpPage() {
         </div>
 
         <div className="bg-blue-900/50 border border-blue-600 rounded-lg p-3">
+          <p className="text-blue-200 text-sm font-medium mb-2">
+            🛡️ Is my information secure?
+          </p>
+          <p className="text-blue-100 text-xs mb-3">
+            Yes, MyCustodyCoach takes protecting and securing your personal data very seriously—it&apos;s our main priority. We use industry-standard security practices and encryption to safeguard your information and case details, which are never shared with third parties.
+          </p>
           <p className="text-blue-200 text-sm font-medium mb-1">
-            Is my information secure?
+            📝 How do you use my information?
           </p>
           <p className="text-blue-100 text-xs">
-            Yes, MyCustodyCoach takes protecting and securing your personal data very seriously—it&apos;s our main priority. We use industry-standard security practices and encryption to safeguard your information and case details, which are never shared with third parties.
+            We only use your personal information to personalize your AI responses. Details like your state, child&apos;s age, and custody goals help our AI provide more accurate, relevant advice specific to your situation and jurisdiction.
           </p>
         </div>
 
